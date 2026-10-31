@@ -1,0 +1,199 @@
+/* GitHub-rendered README HTML, restyled for the PS2 look. */
+
+.markdown-body {
+  font-size: 0.97rem;
+  line-height: 1.7;
+  color: #d5def3;
+  overflow-wrap: break-word;
+}
+.markdown-body > :first-child {
+  margin-top: 20px;
+}
+.markdown-body [align='center'] {
+  text-align: center;
+}
+
+.markdown-body :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--ink);
+  font-weight: 500;
+  line-height: 1.25;
+  margin: 0;
+}
+.markdown-body .markdown-heading {
+  position: relative;
+  margin: 2.2em 0 0.8em;
+}
+.markdown-body h1 { font-size: 1.9rem; font-weight: 300; }
+.markdown-body h2 {
+  font-size: 1.45rem;
+  font-weight: 400;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--line);
+  text-shadow: 0 0 14px rgb(120 165 255 / 0.4);
+}
+.markdown-body h3 { font-size: 1.15rem; }
+.markdown-body h4 { font-size: 1rem; color: var(--ink-dim); }
+.markdown-body .anchor {
+  position: absolute;
+  top: -80px;
+}
+
+.markdown-body :is(p, ul, ol, table, pre, blockquote, details, .highlight, .snippet-clipboard-content) {
+  margin: 0 0 1em;
+}
+.markdown-body :is(ul, ol) {
+  padding-left: 1.5em;
+}
+.markdown-body li + li {
+  margin-top: 0.25em;
+}
+.markdown-body li::marker {
+  color: hsl(var(--h, 220) 90% 72%);
+}
+.markdown-body strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.markdown-body a {
+  color: hsl(var(--h, 220) 95% 78%);
+  text-decoration-color: hsl(var(--h, 220) 95% 78% / 0.4);
+  text-underline-offset: 3px;
+}
+.markdown-body a:hover {
+  text-decoration-color: currentColor;
+}
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+.markdown-body a > img[src*='camo.githubusercontent'],
+.markdown-body img[data-canonical-src*='shields.io'] {
+  border-radius: 4px;
+  margin: 2px 1px;
+}
+.markdown-body p:has(> a > img:not([data-canonical-src])) img {
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.markdown-body hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+  margin: 2em 0;
+}
+
+.markdown-body code,
+.markdown-body pre {
+  font-family: var(--mono);
+  font-size: 0.86em;
+}
+.markdown-body :not(pre) > code {
+  padding: 0.15em 0.4em;
+  border-radius: 5px;
+  background: rgb(120 150 255 / 0.12);
+  border: 1px solid rgb(120 150 255 / 0.16);
+  color: #dfe8ff;
+}
+.markdown-body pre {
+  padding: 14px 16px;
+  overflow: auto;
+  line-height: 1.5;
+  border-radius: 10px;
+  background: rgb(0 2 12 / 0.75);
+  border: 1px solid var(--line);
+}
+.markdown-body pre code {
+  font-size: 1em;
+}
+.markdown-body .pl-c { color: #6c7ea6; font-style: italic; }
+.markdown-body :is(.pl-k, .pl-smi) { color: #ff8fd8; }
+.markdown-body :is(.pl-s, .pl-pds, .pl-sr) { color: #8fe3b8; }
+.markdown-body :is(.pl-c1, .pl-v, .pl-ent) { color: #8fb8ff; }
+.markdown-body :is(.pl-en, .pl-e) { color: #ffd27f; }
+
+.markdown-body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+.markdown-body :is(th, td) {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+.markdown-body th {
+  background: rgb(110 140 255 / 0.1);
+  font-weight: 600;
+  color: var(--ink);
+}
+.markdown-body tr:nth-child(2n) td {
+  background: rgb(255 255 255 / 0.02);
+}
+
+.markdown-body blockquote {
+  padding: 0.2em 1em;
+  color: var(--ink-dim);
+  border-left: 3px solid var(--line-strong);
+}
+
+.markdown-body details {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.02);
+}
+.markdown-body summary {
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.markdown-body kbd {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  padding: 0.15em 0.45em;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  background: rgb(255 255 255 / 0.05);
+}
+
+/* GitHub alerts: > [!NOTE], > [!IMPORTANT], ... */
+.markdown-body .markdown-alert {
+  --a: var(--cross);
+  margin: 0 0 1.2em;
+  padding: 10px 16px;
+  border-left: 3px solid var(--a);
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--a) 9%, transparent);
+}
+.markdown-body .markdown-alert > :last-child {
+  margin-bottom: 0;
+}
+.markdown-body .markdown-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--a);
+  margin-bottom: 0.4em;
+}
+.markdown-body .markdown-alert-tip { --a: var(--triangle); }
+.markdown-body .markdown-alert-important { --a: #b79bff; }
+.markdown-body .markdown-alert-warning { --a: var(--wip); }
+.markdown-body .markdown-alert-caution { --a: var(--circle); }
+.markdown-body .octicon {
+  fill: currentColor;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.markdown-body .task-list-item {
+  list-style: none;
+}
+.markdown-body .task-list-item input {
+  margin: 0 0.4em 0 -1.3em;
+}

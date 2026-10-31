@@ -1,0 +1,84 @@
+---
+import '@fontsource-variable/exo-2';
+import '../styles/global.css';
+import { ClientRouter } from 'astro:transitions';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Backdrop mode for this page. */
+  scene?: 'menu' | 'page';
+  hue?: number;
+  /** Button hints shown in the footer. */
+  hints?: { button: 'cross' | 'circle' | 'triangle' | 'square' | 'l1' | 'r1'; label: string }[];
+}
+
+const {
+  title,
+  description = 'Native PC ports of PlayStation 2 games, made by static recompilation.',
+  scene = 'page',
+  hue,
+  hints = [{ button: 'cross', label: 'Enter' }],
+} = Astro.props;
+const base = import.meta.env.BASE_URL;
+// A soft PS2-style zoom-through between pages (keyframes in global.css).
+const zoom = {
+  old: { name: 'rw-out', duration: '0.28s', easing: 'ease-in', fillMode: 'both' },
+  new: { name: 'rw-in', duration: '0.42s', easing: 'ease-out', fillMode: 'both' },
+};
+const pageAnim = { forwards: zoom, backwards: zoom };
+const glyph = { cross: '✕', circle: '○', triangle: '△', square: '□', l1: 'L1', r1: 'R1' };
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#01030a" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+    <title>{title}</title>
+    <ClientRouter fallback="swap" />
+  </head>
+  <body data-scene={scene} data-hue={hue}>
+    <div id="scene" transition:persist="scene" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <a href={base} class="brand" data-brand>
+        <span class="brand-mark">RECOMP</span><span class="brand-sub">WATCHER</span>
+      </a>
+      <span class="clock" data-clock></span>
+    </header>
+
+    <main transition:name="main" transition:animate={pageAnim}>
+      <slot />
+    </main>
+
+    <footer class="hints">
+      <div class="hint-row">
+        {
+          hints.map((h) => (
+            <span class="hint">
+              <span class={`btn ${h.button}`}>{glyph[h.button]}</span>
+              {h.label}
+            </span>
+          ))
+        }
+      </div>
+      <button class="hint sound" type="button" data-sound aria-pressed="false" title="Toggle menu sounds">
+        <span class="btn square">□</span>
+        <span class="on">Sound on</span><span class="off">Sound off</span>
+      </button>
+    </footer>
+
+    <script>
+      import '../scripts/controls';
+      // Three.js is the heavy part; the menu works without it, so load it after.
+      void import('../scripts/scene');
+    </script>
+  </body>
+</html>

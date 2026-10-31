@@ -1,0 +1,383 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Base from '../../layouts/Base.astro';
+import SaveIcon from '../../components/SaveIcon.astro';
+import { getProjects, type Project, type Os } from '../../lib/github';
+import '../../styles/readme.css';
+
+export const getStaticPaths = (async () => {
+  const all = await getProjects();
+  return all.map((project, i) => ({
+    params: { slug: project.slug },
+    props: { project, prev: all.at(i - 1)!, next: all[(i + 1) % all.length] },
+  }));
+}) satisfies GetStaticPaths;
+
+interface Props {
+  project: Project;
+  prev: Project;
+  next: Project;
+}
+const { project: p, prev, next } = Astro.props;
+const base = import.meta.env.BASE_URL;
+
+const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const size = (b?: number) => (b ? (b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${(b / 1e6).toFixed(1)} MB`) : '');
+const osName: Record<Os, string> = { windows: 'Windows', linux: 'Linux', macos: 'macOS', any: 'All platforms' };
+
+const specs = [
+  ['Original', p.system],
+  ['Serial', p.serial],
+  ['Region', p.region],
+  ['Runs on', p.platforms.join(' · ') || undefined],
+  ['Language', p.language],
+  ['License', p.license],
+  ['Last update', date(p.updatedAt)],
+].filter((s): s is [string, string] => !!s[1]);
+---
+
+<Base
+  title={`${p.title} · Recomp Watcher`}
+  description={p.tagline || p.description}
+  hue={p.hue}
+  hints={[
+    { button: 'cross', label: 'Select' },
+    { button: 'circle', label: 'Back' },
+    { button: 'triangle', label: 'Repository' },
+    { button: 'l1', label: prev.title },
+    { button: 'r1', label: next.title },
+  ]}
+>
+  <div class="page" style={`--h:${p.hue}`} data-current={p.slug}>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href={base} data-back><span class="btn circle">○</span> Browser</a>
+      <span aria-hidden="true">›</span>
+      <span>{p.kind === 'game' ? 'Games' : 'System · Tools'}</span>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-icon">
+        <SaveIcon short={p.short} hue={p.hue} kind={p.kind} size={120} spin />
+      </div>
+      <div class="hero-info">
+        <p class="eyebrow">{p.kind === 'game' ? 'Native PC port' : 'Tool'} · {p.system}</p>
+        <h1>{p.title}</h1>
+        {p.status && <p class="status" data-tone={p.status.tone}>{p.status.text}</p>}
+        <p class="tagline">{p.tagline || p.description}</p>
+        <dl class="specs">
+          {
+            specs.map(([k, v]) => (
+              <div>
+                <dt>{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))
+          }
+          {
+            p.upstream && (
+              <div>
+                <dt>Fork of</dt>
+                <dd>
+                  <a href={p.upstream.url} target="_blank" rel="noopener">
+                    {p.upstream.name}
+                  </a>
+                </dd>
+              </div>
+            )
+          }
+        </dl>
+      </div>
+
+      <div class="actions panel">
+        <p class="eyebrow">Options</p>
+        <a class="action" href="#readme" data-nav data-autofocus>
+          <span class="action-title">Read the documentation</span>
+          <span class="action-sub">The project's README, below</span>
+        </a>
+        <a class="action" href={p.url} target="_blank" rel="noopener" data-nav data-repo>
+          <span class="action-title">Open the repository ↗</span>
+          <span class="action-sub">github.com/{p.owner ?? 'boubou666'}/{p.repo}</span>
+        </a>
+        {
+          p.downloads.length > 0 ? (
+            p.downloads.map((d) => (
+              <a class="action download" href={d.url} data-nav>
+                <span class="action-title">Download for {osName[d.os]}</span>
+                <span class="action-sub">
+                  {d.label}
+                  {d.size ? ` · ${size(d.size)}` : ''}
+                </span>
+              </a>
+            ))
+          ) : (
+            <div class="action disabled" aria-disabled="true">
+              <span class="action-title">Download</span>
+              <span class="action-sub">No build released yet. Builds will appear here once one is published.</span>
+            </div>
+          )
+        }
+        {
+          p.release && (
+            <a class="action" href={p.release.url} target="_blank" rel="noopener" data-nav>
+              <span class="action-title">Release notes ↗</span>
+              <span class="action-sub">
+                {p.release.name}
+                {p.release.prerelease ? ' (pre-release)' : ''} · {date(p.release.date)}
+              </span>
+            </a>
+          )
+        }
+        {p.kind === 'game' && <p class="byo">No game data is included. You need your own copy of the game.</p>}
+      </div>
+    </section>
+
+    {
+      p.screenshots.length > 0 && (
+        <section class="shots" aria-label="Screenshots">
+          <p class="eyebrow">Screenshots</p>
+          <ul>
+            {p.screenshots.map((s) => (
+              <li>
+                <a href={s.src} target="_blank" rel="noopener">
+                  <img src={s.src} alt={s.alt} loading="lazy" decoding="async" />
+                </a>
+                {s.alt && <span>{s.alt}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    <article id="readme" class="readme panel">
+      <header class="readme-head">
+        <p class="eyebrow">README.md</p>
+        <a href={p.url + '#readme'} target="_blank" rel="noopener">View on GitHub ↗</a>
+      </header>
+      <div class="markdown-body" set:html={p.readmeHtml} />
+    </article>
+
+    <nav class="pager" aria-label="Other projects">
+      <a href={`${base}p/${prev.slug}/`} data-prev>
+        <span class="btn l1">L1</span>
+        <span><small>Previous</small>{prev.title}</span>
+      </a>
+      <a href={`${base}p/${next.slug}/`} data-next class="next">
+        <span><small>Next</small>{next.title}</span>
+        <span class="btn r1">R1</span>
+      </a>
+    </nav>
+  </div>
+</Base>
+
+<style>
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 18px var(--gutter) 40px;
+  }
+  .crumbs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+  }
+  .crumbs a {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    color: var(--ink-dim);
+    text-decoration: none;
+  }
+  .crumbs a:hover {
+    color: var(--ink);
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(260px, 340px);
+    gap: 28px;
+    align-items: start;
+    margin-top: 26px;
+  }
+  .hero-icon {
+    padding-top: 8px;
+  }
+  .hero h1 {
+    margin: 8px 0 10px;
+    font-size: clamp(1.8rem, 4vw, 2.9rem);
+    font-weight: 300;
+    line-height: 1.1;
+    text-shadow: var(--glow);
+  }
+  .tagline {
+    color: var(--ink-dim);
+    font-weight: 300;
+    max-width: 62ch;
+  }
+  .specs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px 20px;
+    margin: 18px 0 0;
+  }
+  .specs dt {
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .specs dd {
+    margin: 2px 0 0;
+    font-size: 0.92rem;
+  }
+
+  .actions {
+    padding: 16px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .actions .eyebrow {
+    padding: 0 10px 6px;
+  }
+  .action {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--ink);
+    border: 1px solid transparent;
+    outline: none;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .action:is(:hover, :focus, :focus-visible):not(.disabled) {
+    background: linear-gradient(90deg, hsl(var(--h) 90% 60% / 0.22), hsl(var(--h) 90% 60% / 0.04));
+    border-color: hsl(var(--h) 90% 75% / 0.35);
+  }
+  .action:is(:focus, :focus-visible) .action-title {
+    text-shadow: var(--glow);
+  }
+  .action-title {
+    font-size: 0.98rem;
+  }
+  .action-sub {
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+    overflow-wrap: anywhere;
+  }
+  .download .action-title {
+    color: var(--good);
+  }
+  .disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .byo {
+    margin: 8px 12px 2px;
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+  }
+
+  .shots {
+    margin-top: 36px;
+  }
+  .shots ul {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0 0 10px;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(240px, 300px);
+    gap: 14px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+  .shots li {
+    scroll-snap-align: start;
+  }
+  .shots img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: rgb(255 255 255 / 0.03);
+  }
+  .shots span {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+  }
+
+  .readme {
+    margin-top: 36px;
+    padding: 8px clamp(18px, 4vw, 44px) 36px;
+  }
+  .readme-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.82rem;
+  }
+
+  .pager {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 28px;
+  }
+  .pager a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: var(--ink);
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--glass);
+  }
+  .pager a:hover {
+    border-color: var(--line-strong);
+  }
+  .pager small {
+    display: block;
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .pager .next {
+    text-align: right;
+  }
+
+  @media (max-width: 980px) {
+    .hero {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .actions {
+      grid-column: 1 / -1;
+    }
+  }
+  @media (max-width: 600px) {
+    .hero {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .hero-icon {
+      display: grid;
+      place-items: center;
+    }
+    .pager a span:not(.btn) {
+      font-size: 0.85rem;
+    }
+  }
+</style>
