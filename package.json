@@ -23,6 +23,10 @@
     "@astrojs/check": "^0.9.12",
     "@types/node": "^24.19.2",
     "@types/three": "^0.187.0",
-    "typescript": "^6.0.3"
+    "@vite-pwa/assets-generator": "^2.0.0",
+    "@vite-pwa/astro": "^2.0.0",
+    "typescript": "^6.0.3",
+    "vite-plugin-pwa": "^2.0.0",
+    "workbox-window": "^7.4.1"
   }
 }

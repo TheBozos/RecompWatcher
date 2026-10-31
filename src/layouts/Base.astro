@@ -4,6 +4,7 @@ import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
 import Glyph, { type Button } from '../components/Glyph.astro';
 import { localHref, useT, type Lang } from '../i18n';
+import { pwaInfo } from 'virtual:pwa-info';
 
 interface Props {
   lang: Lang;
@@ -62,7 +63,10 @@ const pageAnim = { forwards: zoom, backwards: zoom };
     <link rel="alternate" hreflang="fr" href={inLang('fr')} />
     <meta property="og:locale" content={lang === 'fr' ? 'fr_FR' : 'en_GB'} />
     <link rel="alternate" type="application/rss+xml" title="Recomp Watcher" href={absolute('feed.xml')} />
-    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+    <link rel="icon" href={`${base}favicon.ico`} sizes="48x48" />
+    <link rel="icon" href={`${base}icon.svg`} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={`${base}apple-touch-icon-180x180.png`} />
+    {pwaInfo && <Fragment set:html={pwaInfo.webManifest.linkTag} />}
     <title>{title}</title>
     <ClientRouter fallback="swap" />
     <script is:inline>
@@ -117,10 +121,13 @@ const pageAnim = { forwards: zoom, backwards: zoom };
     <div class="toast" data-toast role="status" aria-live="polite"></div>
 
     <script>
+      import { registerSW } from 'virtual:pwa-register';
       import '../scripts/settings';
       import '../scripts/controls';
       import '../scripts/disc';
       import '../scripts/time';
+      // Installable app: the service worker keeps visited pages readable offline.
+      registerSW({ immediate: true });
       // Three.js is the heavy part; the menu works without it, so load it after.
       void import('../scripts/scene');
     </script>
