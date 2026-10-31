@@ -130,7 +130,7 @@ const imageFor = (i: number) => (i < 4 && faces.length ? faces[i % faces.length]
     from { transform: rotateX(-18deg) rotateY(-28deg); }
     to { transform: rotateX(-18deg) rotateY(332deg); }
   }
-  @media (prefers-reduced-motion: reduce) {
-    .cube, .shadow, .spin .cube { animation: none !important; }
-  }
+  /* Reduced motion: the System Configuration setting, which follows the OS by default. */
+  :global(:root[data-motion='reduced']) .cube, :global(:root[data-motion='reduced']) .shadow, :global(:root[data-motion='reduced']) .spin .cube { animation: none !important; }
+
 </style>

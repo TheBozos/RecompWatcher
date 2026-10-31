@@ -3,37 +3,36 @@
 // the port is built against and checks the visitor's copy in their browser.
 import type { Project } from '../lib/github';
 import Glyph from './Glyph.astro';
+import { localHref, useT, type Lang } from '../i18n';
 
 interface Props {
   project: Project;
   all: Project[];
+  lang: Lang;
 }
-const { project: p, all } = Astro.props;
-const base = import.meta.env.BASE_URL;
+const { project: p, all, lang } = Astro.props;
+const t = useT(lang);
 
 const data = {
   slug: p.slug,
   title: p.title,
   mode: p.disc.mode,
   files: p.disc.files,
-  known: all.flatMap((o) => o.disc.files.map((f) => ({ ...f, slug: o.slug, title: o.title, href: `${base}p/${o.slug}/` }))),
+  known: all.flatMap((o) => o.disc.files.map((f) => ({ ...f, slug: o.slug, title: o.title, href: localHref(lang, `p/${o.slug}/`) }))),
 };
 const example = p.disc.files[0]?.file;
 ---
 
 <section id="disc-check" class="disc panel" data-disc aria-labelledby="disc-title">
   <header class="disc-head">
-    <p class="eyebrow">Disc check</p>
-    <h2 id="disc-title">Is your copy supported?</h2>
-    <p class="disc-lede">
-      The port is built against one exact version of the game. Drop your game's executable ({example}), a folder copied
-      from the disc, or the whole disc image (.iso / .bin) to check yours.
-    </p>
+    <p class="eyebrow">{t('discEyebrow')}</p>
+    <h2 id="disc-title">{t('discTitle')}</h2>
+    <p class="disc-lede">{t('discLede', { example: example ?? '' })}</p>
   </header>
 
   <div class="disc-body">
     <div class="expect">
-      <p class="expect-title">{p.disc.mode === 'any' ? 'Any one of these' : 'All of these'}</p>
+      <p class="expect-title">{p.disc.mode === 'any' ? t('discAny') : t('discAll')}</p>
       <ul>
         {
           p.disc.files.map((f) => (
@@ -62,9 +61,9 @@ const example = p.disc.files[0]?.file;
           <path d="M32 3a29 29 0 0 1 25.1 14.5" class="disc-shine" />
         </svg>
       </div>
-      <p class="drop-title">Drop files anywhere on this page</p>
+      <p class="drop-title pointer-only">{t('discDrop')}</p>
       <button type="button" class="pick" data-pick data-nav data-gesture>
-        <Glyph button="cross" /> Choose files
+        <Glyph button="cross" /> {t('discChoose')}
       </button>
       <input type="file" multiple hidden data-disc-input />
       <p class="drop-status" data-status aria-live="polite"></p>
@@ -74,10 +73,7 @@ const example = p.disc.files[0]?.file;
   <p class="verdict" data-verdict hidden aria-live="polite"></p>
   <ul class="results" data-results></ul>
 
-  <p class="privacy">
-    Checked on your computer: files are read by your browser and never uploaded. Only the files this port needs are read
-    from a disc image.
-  </p>
+  <p class="privacy">{t('discPrivacy')}</p>
 
   <script type="application/json" data-disc-data set:html={JSON.stringify(data)} />
 </section>
@@ -363,9 +359,9 @@ const example = p.disc.files[0]?.file;
       grid-column: 2;
     }
   }
-  @media (prefers-reduced-motion: reduce) {
-    :global(.busy) .spinner svg {
-      animation: none;
-    }
+  /* Reduced motion: the System Configuration setting, which follows the OS by default. */
+  :global(:root[data-motion='reduced']) :global(.busy) .spinner svg {
+    animation: none;
   }
+
 </style>

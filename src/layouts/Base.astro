@@ -3,8 +3,12 @@ import '@fontsource-variable/exo-2';
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
 import Glyph, { type Button } from '../components/Glyph.astro';
+import { localHref, useT, type Lang } from '../i18n';
 
 interface Props {
+  lang: Lang;
+  /** This page's path without the language prefix, e.g. "p/dark-cloud/" ("" for the Browser). */
+  path: string;
   title: string;
   description?: string;
   /** Backdrop mode for this page. */
@@ -12,22 +16,22 @@ interface Props {
   hue?: number;
   /** Share card path under the site, e.g. "og/dark-cloud.jpg". */
   image?: string;
+  /** Follow the visitor's saved language choice (off for the 404 page). */
+  langRedirect?: boolean;
   /** Button hints shown in the footer. */
   hints?: { button: Button; label: string }[];
 }
 
-const {
-  title,
-  description = 'Native PC ports of PlayStation 2 games, made by static recompilation.',
-  scene = 'page',
-  hue,
-  image = 'og/home.jpg',
-  hints = [{ button: 'cross', label: 'Enter' }],
-} = Astro.props;
+const { lang, path, title, scene = 'page', hue, image = 'og/home.jpg', langRedirect = true } = Astro.props;
+const t = useT(lang);
+const description = Astro.props.description ?? t('metaDescription');
+const hints = Astro.props.hints ?? [{ button: 'cross', label: t('hintEnter') }];
+const otherLang: Lang = lang === 'fr' ? 'en' : 'fr';
 const base = import.meta.env.BASE_URL;
 const site = Astro.site ?? new URL('http://localhost:4321');
 const absolute = (path: string) => new URL(base.replace(/\/?$/, '/') + path, site).href;
 const pageUrl = new URL(Astro.url.pathname, site).href;
+const inLang = (l: Lang) => new URL(localHref(l, path), site).href;
 // A soft PS2-style zoom-through between pages (keyframes in global.css).
 const zoom = {
   old: { name: 'rw-out', duration: '0.28s', easing: 'ease-in', fillMode: 'both' },
@@ -37,7 +41,7 @@ const pageAnim = { forwards: zoom, backwards: zoom };
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -54,19 +58,38 @@ const pageAnim = { forwards: zoom, backwards: zoom };
     <meta property="og:image:alt" content={title} />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="canonical" href={pageUrl} />
+    <link rel="alternate" hreflang="en" href={inLang('en')} />
+    <link rel="alternate" hreflang="fr" href={inLang('fr')} />
+    <meta property="og:locale" content={lang === 'fr' ? 'fr_FR' : 'en_GB'} />
     <link rel="alternate" type="application/rss+xml" title="Recomp Watcher" href={absolute('feed.xml')} />
     <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
     <title>{title}</title>
     <ClientRouter fallback="swap" />
+    <script is:inline>
+      // System Configuration, applied before the first paint (scripts/settings.ts does the rest).
+      try {
+        var s = JSON.parse(localStorage.getItem('rw-settings') || '{}');
+        var reduce = s.motion === 'reduced' || (s.motion !== 'full' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+        document.documentElement.dataset.motion = reduce ? 'reduced' : 'full';
+        document.documentElement.dataset.background = s.background || 'towers';
+      } catch (e) {}
+    </script>
   </head>
-  <body data-scene={scene} data-hue={hue}>
+  <body data-scene={scene} data-hue={hue} data-lang-redirect={langRedirect ? undefined : 'off'}>
     <div id="scene" transition:persist="scene" aria-hidden="true"></div>
     <div class="vignette" aria-hidden="true"></div>
 
     <header class="topbar">
-      <a href={base} class="brand" data-brand>
+      <a href={localHref(lang)} class="brand" data-brand>
         <span class="brand-mark">RECOMP</span><span class="brand-sub">WATCHER</span>
       </a>
+      <nav class="topnav" aria-label="Recomp Watcher">
+        <a href={localHref(lang)} aria-current={path === '' ? 'page' : undefined}>{t('navBrowser')}</a>
+        <a href={localHref(lang, 'system/')} aria-current={path === 'system/' ? 'page' : undefined}>{t('navSystem')}</a>
+        <a href={localHref(otherLang, path)} hreflang={otherLang} lang={otherLang} data-lang-switch={otherLang} class="lang">
+          {otherLang.toUpperCase()}
+        </a>
+      </nav>
       <span class="clock" data-clock></span>
     </header>
 
@@ -85,14 +108,15 @@ const pageAnim = { forwards: zoom, backwards: zoom };
           ))
         }
       </div>
-      <button class="hint sound" type="button" data-sound aria-pressed="false" title="Toggle menu sounds">
+      <button class="hint sound" type="button" data-sound aria-pressed="false" title={t('soundToggle')}>
         <Glyph button="square" />
-        <span class="on">Sound on</span><span class="off">Sound off</span>
+        <span class="on">{t('soundOn')}</span><span class="off">{t('soundOff')}</span>
       </button>
     </footer>
     <div class="toast" data-toast role="status" aria-live="polite"></div>
 
     <script>
+      import '../scripts/settings';
       import '../scripts/controls';
       import '../scripts/disc';
       import '../scripts/time';

@@ -1,15 +1,19 @@
 ---
-import Base from '../layouts/Base.astro';
-import SaveIcon from '../components/SaveIcon.astro';
-import Blocks from '../components/Blocks.astro';
-import AuthorTag from '../components/AuthorTag.astro';
-import { getProjects } from '../lib/github';
-import { BADGE_DAYS, eventsOf } from '../lib/events';
+import Base from '../../layouts/Base.astro';
+import SaveIcon from '../../components/SaveIcon.astro';
+import Blocks from '../../components/Blocks.astro';
+import AuthorTag from '../../components/AuthorTag.astro';
+import { getProjects } from '../../lib/github';
+import { BADGE_DAYS, eventsOf } from '../../lib/events';
+import { langPaths, localHref, useT, type Lang } from '../../i18n';
 
+export const getStaticPaths = langPaths;
+
+const lang = Astro.props.lang as Lang;
+const t = useT(lang);
 const all = await getProjects();
 const games = all.filter((p) => p.kind === 'game');
 const tools = all.filter((p) => p.kind === 'tool');
-const base = import.meta.env.BASE_URL;
 const first = games[0] ?? tools[0];
 
 // Everyone with a game here, for the "show games by" filter.
@@ -40,14 +44,14 @@ const focusData = (p: (typeof all)[number]) => ({
   'data-author': p.author.login,
   'data-author-avatar': p.author.avatar,
   'data-ms': p.milestones
-    ? `${p.milestones.items.filter((i) => i.step === 'done').length} of ${p.milestones.items.length} milestones`
+    ? t('msCount', { done: p.milestones.items.filter((i) => i.step === 'done').length, total: p.milestones.items.length })
     : '',
 });
 const msOf = (p: (typeof all)[number]) => p.milestones?.items.map((i) => i.step);
 
 // The badge a cube may wear: its latest event and until when (decided in the
 // browser, since the site is only rebuilt once a day).
-const BADGE_TEXT = { release: 'New build', status: 'Updated', start: 'New' };
+const BADGE_TEXT = { release: t('badgeRelease'), status: t('badgeStatus'), start: t('badgeStart') };
 const badgeOf = (p: (typeof all)[number]) => {
   const latest = eventsOf(p, '')[0];
   if (!latest) return undefined;
@@ -60,52 +64,64 @@ const meta = (p: (typeof all)[number]) =>
 ---
 
 <Base
+  lang={lang}
+  path=""
   title="Recomp Watcher"
   scene="menu"
   hints={[
-    { button: 'cross', label: 'Enter' },
-    { button: 'triangle', label: 'Repository' },
+    { button: 'cross', label: t('hintEnter') },
+    { button: 'triangle', label: t('hintRepository') },
   ]}
 >
   <section class="boot" data-boot aria-hidden="true">
     <div class="boot-inner">
       <p class="boot-logo"><span>RECOMP</span> <span>WATCHER</span></p>
-      <p class="boot-tag">PlayStation 2 games, recompiled into native PC programs</p>
-      <p class="boot-skip">Press any button</p>
+      <p class="boot-tag">{t('bootTag')}</p>
+      <p class="boot-skip"><span class="pointer-only">{t('bootSkip')}</span><span class="touch-only">{t('bootTap')}</span></p>
     </div>
   </section>
   <script is:inline>
+    // The startup screen, as set in System Configuration: once per visit (default), every time, or never.
     try {
-      if (!sessionStorage.getItem('rw-booted')) document.querySelector('[data-boot]').classList.add('on');
-    } catch {}
+      var intro = JSON.parse(localStorage.getItem('rw-settings') || '{}').intro || 'session';
+      if (intro === 'always' || (intro === 'session' && !sessionStorage.getItem('rw-booted'))) {
+        document.querySelector('[data-boot]').classList.add('on');
+      }
+    } catch (e) {}
   </script>
 
   <div class="menu">
-    <section class="focus" aria-live="polite">
-      <p class="eyebrow">Browser · Memory Card / 1</p>
+    <section class="touch-intro touch-only">
+      <p class="eyebrow">{t('browserEyebrow')}</p>
+      <h1>Recomp Watcher</h1>
+      <p>{t('touchIntro', { games: games.length, authors: authors.map((a) => a.login).join(' & ') || first?.author.login || '' })}</p>
+    </section>
+
+    <section class="focus pointer-only" aria-live="polite">
+      <p class="eyebrow">{t('browserEyebrow')}</p>
       <h1 data-f="title">{first?.title}</h1>
       <p class="focus-author" data-f="author-row">
-        {first && <AuthorTag author={first.author} />}
+        {first && <AuthorTag author={first.author} prefix={t('by')} />}
       </p>
       <p class="focus-meta" data-f="meta">{first && meta(first)}</p>
       <p class="status" data-f="status" data-tone={first?.status?.tone} hidden={!first?.status}>{first?.status?.text}</p>
       <p class="focus-tag" data-f="tagline">{first?.tagline}</p>
       <div class="focus-ms" data-f="ms-row" hidden={!first?.milestones} style={first && `--h:${first.hue}`}>
         <div class="focus-blocks" data-f="blocks">
-          {first && msOf(first) && <Blocks steps={msOf(first)!} size="lg" />}
+          {first && msOf(first) && <Blocks steps={msOf(first)!} size="lg" lang={lang} />}
         </div>
         <span data-f="ms">{first && focusData(first)['data-ms']}</span>
       </div>
       <p class="focus-last" data-f="last" hidden={!first?.commits[0]}>
-        Last update <time data-f="last-date" datetime={first?.commits[0]?.date} data-ago></time>
+        {t('lastUpdate')} <time data-f="last-date" datetime={first?.commits[0]?.date} data-ago></time>
         <span data-f="last-title">{first?.commits[0]?.title}</span>
       </p>
     </section>
 
     {
       [
-        { label: 'Games', list: games },
-        { label: 'System · Tools', list: tools },
+        { label: t('games'), list: games },
+        { label: t('tools'), list: tools },
       ].map(
         (group) =>
           group.list.length > 0 && (
@@ -113,12 +129,12 @@ const meta = (p: (typeof all)[number]) =>
               <div class="group-head">
                 <h2 class="eyebrow">{group.label}</h2>
                 {group.list === games && authors.length > 1 && (
-                  <div class="authors" role="group" aria-label="Show games by">
+                  <div class="authors" role="group" aria-label={t('showGamesBy')}>
                     <button type="button" data-nav data-author-filter="" aria-pressed="true">
-                      Everyone <span class="count">{games.length}</span>
+                      {t('everyone')} <span class="count">{games.length}</span>
                     </button>
                     {authors.map((a) => (
-                      <button type="button" data-nav data-author-filter={a.login} aria-pressed="false" aria-label={`Show ${a.login}'s games (${a.count})`}>
+                      <button type="button" data-nav data-author-filter={a.login} aria-pressed="false" aria-label={t('showAuthorGames', { login: a.login, count: a.count })}>
                         <img src={a.avatar} alt="" width="20" height="20" />
                         {a.login} <span class="count">{a.count}</span>
                       </button>
@@ -131,7 +147,7 @@ const meta = (p: (typeof all)[number]) =>
                   <li>
                     <a
                       class="slot"
-                      href={`${base}p/${p.slug}/`}
+                      href={localHref(lang, `p/${p.slug}/`)}
                       style={`--h:${p.hue}`}
                       data-nav
                       data-slug={p.slug}
@@ -140,17 +156,17 @@ const meta = (p: (typeof all)[number]) =>
                     >
                       <SaveIcon short={p.short} hue={p.hue} kind={p.kind} faces={p.faces} size={p.kind === 'game' ? 72 : 56} />
                       {authors.length > 1 && (
-                        <img class="slot-avatar" src={p.author.avatar} alt={`by ${p.author.login}`} title={`by ${p.author.login}`} width="22" height="22" />
+                        <img class="slot-avatar" src={p.author.avatar} alt={`${t('by')} ${p.author.login}`} title={`${t('by')} ${p.author.login}`} width="22" height="22" />
                       )}
                       <span class="slot-name">{p.title}</span>
-                      {msOf(p) && <Blocks steps={msOf(p)!} />}
+                      {msOf(p) && <Blocks steps={msOf(p)!} lang={lang} />}
                       <span class="slot-badges">
                         {badgeOf(p) && (
                           <span class="slot-badge fresh" data-kind={badgeOf(p)!.kind} data-until={badgeOf(p)!.until} hidden>
                             {badgeOf(p)!.text}
                           </span>
                         )}
-                        {p.downloads.length > 0 && <span class="slot-badge">Download</span>}
+                        {p.downloads.length > 0 && <span class="slot-badge">{t('badgeDownload')}</span>}
                       </span>
                     </a>
                   </li>
@@ -165,13 +181,13 @@ const meta = (p: (typeof all)[number]) =>
       activity.length > 0 && (
         <section class="group activity">
           <div class="group-head">
-            <h2 class="eyebrow">Recent activity</h2>
-            <a class="feed-link" href={`${base}feed.xml`}>RSS feed</a>
+            <h2 class="eyebrow">{t('recentActivity')}</h2>
+            <a class="feed-link" href={localHref('en', 'feed.xml')}>{t('rssFeed')}</a>
           </div>
           <ul>
             {activity.map((c) => (
               <li>
-                <a href={`${base}p/${c.project.slug}/#progress`} data-nav style={`--h:${c.project.hue}`} {...focusData(c.project)}>
+                <a href={localHref(lang, `p/${c.project.slug}/#progress`)} data-nav style={`--h:${c.project.hue}`} {...focusData(c.project)}>
                   <img class="act-avatar" src={c.project.author.avatar} alt={c.project.author.login} title={c.project.author.login} width="20" height="20" />
                   <span class="act-project">{c.project.title}</span>
                   <span class="act-title">{c.title}</span>
@@ -184,13 +200,13 @@ const meta = (p: (typeof all)[number]) =>
       )
     }
 
-    <a class="visually-hidden" data-repo href="#" target="_blank" rel="noopener" tabindex="-1">Open repository</a>
+    <a class="visually-hidden" data-repo href="#" target="_blank" rel="noopener" tabindex="-1">{t('openRepository')}</a>
   </div>
 </Base>
 
 <script>
-  import { setScene } from '../scripts/scene-events';
-  import { ago } from '../scripts/time';
+  import { setScene } from '../../scripts/scene-events';
+  import { ago } from '../../scripts/time';
 
   function showFocus(el: HTMLElement) {
     const d = el.dataset;
@@ -300,7 +316,7 @@ const meta = (p: (typeof all)[number]) =>
     addEventListener('keydown', skip, true);
     addEventListener('pointerdown', skip, true);
     addEventListener('rw:pad-press', skip);
-    setTimeout(finish, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 5600);
+    setTimeout(finish, document.documentElement.dataset.motion === 'reduced' ? 0 : 5600);
   });
 </script>
 
@@ -316,6 +332,17 @@ const meta = (p: (typeof all)[number]) =>
     opacity: 0;
   }
 
+  .touch-intro h1 {
+    margin: 8px 0 8px;
+    font-size: 2rem;
+    font-weight: 300;
+    text-shadow: var(--glow);
+  }
+  .touch-intro p:last-child {
+    margin: 0;
+    color: var(--ink-dim);
+    font-weight: 300;
+  }
   .focus {
     min-height: 220px;
     max-width: 900px;
@@ -674,7 +701,7 @@ const meta = (p: (typeof all)[number]) =>
     .slots { grid-template-columns: repeat(2, 1fr); }
     .slots.tool { grid-template-columns: repeat(3, 1fr); }
   }
-  @media (prefers-reduced-motion: reduce) {
-    .boot.on { display: none; }
-  }
+  /* Reduced motion: the System Configuration setting, which follows the OS by default. */
+  :global(:root[data-motion='reduced']) .boot.on { display: none; }
+
 </style>

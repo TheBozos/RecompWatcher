@@ -6,6 +6,8 @@
 import { navigate } from 'astro:transitions/client';
 import { setScene } from './scene-events';
 import { play, setSound, soundOn } from './sound';
+import { getSettings, setSettings } from './settings';
+import { LOCALE, pageLang, tc } from '../i18n';
 
 type Dir = 'up' | 'down' | 'left' | 'right';
 
@@ -57,6 +59,12 @@ function neighbour(from: HTMLElement, dir: Dir): HTMLElement | undefined {
 
 function move(dir: Dir): boolean {
   const from = current();
+  // Rows like System Configuration's take left/right as "change the value".
+  if (from?.hasAttribute('data-adjust') && (dir === 'left' || dir === 'right')) {
+    play('move');
+    from.dispatchEvent(new CustomEvent('rw:adjust', { detail: dir === 'left' ? -1 : 1, bubbles: true }));
+    return true;
+  }
   if (!from) {
     const first = items()[0];
     if (!first) return false;
@@ -94,7 +102,7 @@ function confirm() {
   if (!el) return;
   // File pickers only open from a real click or key press, never a controller.
   if (fromPad && el.hasAttribute('data-gesture')) {
-    toast('Choosing files needs a mouse or keyboard. You can also drag files onto the page.');
+    toast(tc('toastPicker'));
     return;
   }
   play('confirm');
@@ -196,10 +204,10 @@ function toast(text: string) {
 }
 
 addEventListener('gamepadconnected', () => {
-  toast('Controller connected');
+  toast(tc('toastConnected'));
   startPolling();
 });
-addEventListener('gamepaddisconnected', () => toast('Controller disconnected'));
+addEventListener('gamepaddisconnected', () => toast(tc('toastDisconnected')));
 if ([...navigator.getGamepads()].some(Boolean)) startPolling();
 
 // Selection follows focus and hover.
@@ -225,12 +233,35 @@ function tickClock() {
   const el = document.querySelector('[data-clock]');
   if (el) {
     const d = new Date();
-    el.textContent = d.toLocaleString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    el.textContent = d.toLocaleString(LOCALE[pageLang()], {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: getSettings().clock === '12',
+    });
   }
 }
 setInterval(tickClock, 15_000);
+addEventListener('rw:settings', () => {
+  tickClock();
+  syncSoundButton();
+});
+
+// The language switch remembers the choice; later visits open in that language.
+document.addEventListener('click', (e) => {
+  const link = (e.target as HTMLElement).closest<HTMLElement>('[data-lang-switch]');
+  if (link) setSettings({ lang: link.dataset.langSwitch as 'en' | 'fr' });
+});
 
 document.addEventListener('astro:page-load', () => {
+  const wanted = getSettings().lang;
+  const other = wanted && wanted !== pageLang() && document.body.dataset.langRedirect !== 'off';
+  const target = other && document.querySelector<HTMLAnchorElement>(`[data-lang-switch="${wanted}"]`);
+  if (target) {
+    navigate(target.href, { history: 'replace' });
+    return;
+  }
   syncSoundButton();
   tickClock();
   const mode = (document.body.dataset.scene as 'menu' | 'page' | undefined) ?? 'page';
@@ -247,7 +278,9 @@ document.addEventListener('astro:page-load', () => {
   const start =
     (mode === 'menu' && last && document.querySelector<HTMLElement>(`[data-nav][data-slug="${last}"]`)) ||
     document.querySelector<HTMLElement>('[data-nav][data-autofocus]');
-  if (start) select(start, { sound: false, scroll: false });
+  // Touch screens open what is tapped; a preselected, outlined item is only noise there.
+  const touchOnly = matchMedia('(pointer: coarse)').matches && ![...navigator.getGamepads()].some(Boolean);
+  if (start && !touchOnly) select(start, { sound: false, scroll: false });
   else {
     const hue = document.body.dataset.hue;
     setScene({ mode, hue: hue ? Number(hue) : undefined });

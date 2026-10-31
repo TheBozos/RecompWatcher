@@ -1,65 +1,71 @@
 ---
 import type { GetStaticPaths } from 'astro';
-import Base from '../../layouts/Base.astro';
-import SaveIcon from '../../components/SaveIcon.astro';
-import Glyph from '../../components/Glyph.astro';
-import DiscCheck from '../../components/DiscCheck.astro';
-import Progress from '../../components/Progress.astro';
-import Milestones from '../../components/Milestones.astro';
-import AuthorTag from '../../components/AuthorTag.astro';
-import { getProjects, type Project, type Os } from '../../lib/github';
-import '../../styles/readme.css';
+import Base from '../../../layouts/Base.astro';
+import SaveIcon from '../../../components/SaveIcon.astro';
+import Glyph from '../../../components/Glyph.astro';
+import DiscCheck from '../../../components/DiscCheck.astro';
+import Progress from '../../../components/Progress.astro';
+import Milestones from '../../../components/Milestones.astro';
+import AuthorTag from '../../../components/AuthorTag.astro';
+import { getProjects, type Project, type Os } from '../../../lib/github';
+import { formatDate, langPaths, localHref, useT, type Lang } from '../../../i18n';
+import '../../../styles/readme.css';
 
 export const getStaticPaths = (async () => {
   const all = await getProjects();
-  return all.map((project, i) => ({
-    params: { slug: project.slug },
-    props: { project, all, prev: all.at(i - 1)!, next: all[(i + 1) % all.length] },
-  }));
+  return langPaths().flatMap(({ params, props: { lang } }) =>
+    all.map((project, i) => ({
+      params: { ...params, slug: project.slug },
+      props: { lang, project, all, prev: all.at(i - 1)!, next: all[(i + 1) % all.length] },
+    })),
+  );
 }) satisfies GetStaticPaths;
 
 interface Props {
+  lang: Lang;
   project: Project;
   all: Project[];
   prev: Project;
   next: Project;
 }
-const { project: p, all, prev, next } = Astro.props;
-const base = import.meta.env.BASE_URL;
+const { lang, project: p, all, prev, next } = Astro.props;
+const t = useT(lang);
 
-const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const date = (iso: string) => formatDate(lang, iso);
 const size = (b?: number) => (b ? (b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${(b / 1e6).toFixed(1)} MB`) : '');
-const osName: Record<Os, string> = { windows: 'Windows', linux: 'Linux', macos: 'macOS', any: 'All platforms' };
+const osName: Record<Os, string> = { windows: 'Windows', linux: 'Linux', macos: 'macOS', any: t('osAny') };
 
 const specs = [
-  ['Original', p.system],
-  ['Serial', p.serial],
-  ['Region', p.region],
-  ['Runs on', p.platforms.join(' · ') || undefined],
-  ['Language', p.language],
-  ['License', p.license],
-  ['Last update', date(p.updatedAt)],
+  [t('specOriginal'), p.system],
+  [t('specSerial'), p.serial],
+  [t('specRegion'), p.region],
+  [t('specRunsOn'), p.platforms.join(' · ') || undefined],
+  [t('specLanguage'), p.language],
+  [t('specLicense'), p.license],
+  [t('specUpdated'), date(p.updatedAt)],
 ].filter((s): s is [string, string] => !!s[1]);
 ---
 
 <Base
+  lang={lang}
+  path={`p/${p.slug}/`}
   title={`${p.title} · Recomp Watcher`}
   description={p.tagline || p.description}
   image={`og/${p.slug}.jpg`}
   hue={p.hue}
   hints={[
-    { button: 'cross', label: 'Select' },
-    { button: 'circle', label: 'Back' },
-    { button: 'triangle', label: 'Repository' },
+    { button: 'cross', label: t('hintSelect') },
+    { button: 'circle', label: t('hintBack') },
+    { button: 'triangle', label: t('hintRepository') },
     { button: 'l1', label: prev.title },
     { button: 'r1', label: next.title },
   ]}
 >
   <div class="page" style={`--h:${p.hue}`} data-current={p.slug}>
-    <nav class="crumbs" aria-label="Breadcrumb">
-      <a href={base} data-back><Glyph button="circle" /> Browser</a>
+    <nav class="crumbs" aria-label={t('breadcrumb')}>
+      <a href={localHref(lang)} data-back><Glyph button="circle" /> {t('navBrowser')}</a>
       <span aria-hidden="true">›</span>
-      <span>{p.kind === 'game' ? 'Games' : 'System · Tools'}</span>
+      <span>{p.kind === 'game' ? t('games') : t('tools')}</span>
     </nav>
 
     <section class="hero">
@@ -67,9 +73,9 @@ const specs = [
         <SaveIcon short={p.short} hue={p.hue} kind={p.kind} faces={p.faces} size={120} spin />
       </div>
       <div class="hero-info">
-        <p class="eyebrow">{p.kind === 'game' ? 'Native PC port' : 'Tool'} · {p.system}</p>
+        <p class="eyebrow">{p.kind === 'game' ? t('kindGame') : t('kindTool')} · {p.system}</p>
         <h1>{p.title}</h1>
-        <p class="byline"><AuthorTag author={p.author} link prefix={p.kind === 'game' ? 'Recompiled by' : 'by'} /></p>
+        <p class="byline"><AuthorTag author={p.author} link prefix={p.kind === 'game' ? t('recompiledBy') : t('by')} /></p>
         {p.status && <p class="status" data-tone={p.status.tone}>{p.status.text}</p>}
         <p class="tagline">{p.tagline || p.description}</p>
         <dl class="specs">
@@ -84,7 +90,7 @@ const specs = [
           {
             p.upstream && (
               <div>
-                <dt>Fork of</dt>
+                <dt>{t('specForkOf')}</dt>
                 <dd>
                   <a href={p.upstream.url} target="_blank" rel="noopener">
                     {p.upstream.name}
@@ -97,40 +103,40 @@ const specs = [
       </div>
 
       <div class="actions panel">
-        <p class="eyebrow">Options</p>
+        <p class="eyebrow">{t('options')}</p>
         <a class="action" href="#readme" data-nav data-autofocus>
-          <span class="action-title">Read the documentation</span>
-          <span class="action-sub">The project's README, below</span>
+          <span class="action-title">{t('actReadme')}</span>
+          <span class="action-sub">{t('actReadmeSub')}</span>
         </a>
         {
           p.disc.files.length > 0 && (
             <a class="action" href="#disc-check" data-nav>
-              <span class="action-title">Check your disc</span>
-              <span class="action-sub">Is your copy the version this port supports?</span>
+              <span class="action-title">{t('actDisc')}</span>
+              <span class="action-sub">{t('actDiscSub')}</span>
             </a>
           )
         }
         {
           (p.milestones || p.statusHistory.length > 0 || p.commits.length > 0) && (
             <a class="action" href={p.milestones || p.nativeLayers ? '#milestones' : '#progress'} data-nav>
-              <span class="action-title">See the progress</span>
+              <span class="action-title">{t('actProgress')}</span>
               <span class="action-sub">
                 {p.milestones
-                  ? `${p.milestones.items.filter((i) => i.step === 'done').length} of ${p.milestones.items.length} milestones done`
-                  : 'Status history, latest work'}
+                  ? t('actProgressMs', { done: p.milestones.items.filter((i) => i.step === 'done').length, total: p.milestones.items.length })
+                  : t('actProgressSub')}
               </span>
             </a>
           )
         }
         <a class="action" href={p.url} target="_blank" rel="noopener" data-nav data-repo>
-          <span class="action-title">Open the repository ↗</span>
+          <span class="action-title">{t('actRepo')}</span>
           <span class="action-sub">github.com/{p.owner}/{p.repo}</span>
         </a>
         {
           p.downloads.length > 0 ? (
             p.downloads.map((d) => (
               <a class="action download" href={d.url} data-nav>
-                <span class="action-title">Download for {osName[d.os]}</span>
+                <span class="action-title">{t('actDownloadFor', { os: osName[d.os] })}</span>
                 <span class="action-sub">
                   {d.label}
                   {d.size ? ` · ${size(d.size)}` : ''}
@@ -139,36 +145,36 @@ const specs = [
             ))
           ) : (
             <div class="action disabled" aria-disabled="true">
-              <span class="action-title">Download</span>
-              <span class="action-sub">No build released yet. Builds will appear here once one is published.</span>
+              <span class="action-title">{t('actDownload')}</span>
+              <span class="action-sub">{t('actDownloadNone')}</span>
             </div>
           )
         }
         {
           p.release && (
             <a class="action" href={p.release.url} target="_blank" rel="noopener" data-nav>
-              <span class="action-title">Release notes ↗</span>
+              <span class="action-title">{t('actRelease')}</span>
               <span class="action-sub">
                 {p.release.name}
-                {p.release.prerelease ? ' (pre-release)' : ''} · {date(p.release.date)}
+                {p.release.prerelease ? t('prerelease') : ''} · {date(p.release.date)}
               </span>
             </a>
           )
         }
-        {p.kind === 'game' && <p class="byo">No game data is included. You need your own copy of the game.</p>}
+        {p.kind === 'game' && <p class="byo">{t('byo')}</p>}
       </div>
     </section>
 
-    {p.disc.files.length > 0 && <DiscCheck project={p} all={all} />}
+    {p.disc.files.length > 0 && <DiscCheck project={p} all={all} lang={lang} />}
 
-    {(p.milestones || p.nativeLayers) && <Milestones project={p} />}
+    {(p.milestones || p.nativeLayers) && <Milestones project={p} lang={lang} />}
 
-    {(p.statusHistory.length > 0 || p.commits.length > 0) && <Progress project={p} />}
+    {(p.statusHistory.length > 0 || p.commits.length > 0) && <Progress project={p} lang={lang} />}
 
     {
       p.screenshots.length > 0 && (
-        <section class="shots" aria-label="Screenshots">
-          <p class="eyebrow">Screenshots</p>
+        <section class="shots" aria-label={t('screenshots')}>
+          <p class="eyebrow">{t('screenshots')}</p>
           <ul>
             {p.screenshots.map((s) => (
               <li>
@@ -186,18 +192,19 @@ const specs = [
     <article id="readme" class="readme panel">
       <header class="readme-head">
         <p class="eyebrow">README.md</p>
-        <a href={p.url + '#readme'} target="_blank" rel="noopener">View on GitHub ↗</a>
+        <a href={p.url + '#readme'} target="_blank" rel="noopener">{t('viewOnGitHub')}</a>
       </header>
-      <div class="markdown-body" set:html={p.readmeHtml} />
+      {t('readmeLangNote') && <p class="readme-lang" lang={lang}>{t('readmeLangNote')}</p>}
+      <div class="markdown-body" lang="en" set:html={p.readmeHtml} />
     </article>
 
-    <nav class="pager" aria-label="Other projects">
-      <a href={`${base}p/${prev.slug}/`} data-prev>
+    <nav class="pager" aria-label={t('otherProjects')}>
+      <a href={localHref(lang, `p/${prev.slug}/`)} data-prev>
         <Glyph button="l1" />
-        <span><small>Previous</small>{prev.title}</span>
+        <span><small>{t('previous')}</small>{prev.title}</span>
       </a>
-      <a href={`${base}p/${next.slug}/`} data-next class="next">
-        <span><small>Next</small>{next.title}</span>
+      <a href={localHref(lang, `p/${next.slug}/`)} data-next class="next">
+        <span><small>{t('next')}</small>{next.title}</span>
         <Glyph button="r1" />
       </a>
     </nav>
@@ -357,6 +364,11 @@ const specs = [
   .readme {
     margin-top: 36px;
     padding: 8px clamp(18px, 4vw, 44px) 36px;
+  }
+  .readme-lang {
+    margin: 12px 0 0;
+    font-size: 0.8rem;
+    color: var(--ink-faint);
   }
   .readme-head {
     display: flex;

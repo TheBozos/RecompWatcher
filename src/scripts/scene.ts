@@ -26,12 +26,16 @@ import {
 } from 'three';
 
 import { sceneState, type SceneEvent, type SceneMode } from './scene-events';
+import { getSettings, reducedMotion } from './settings';
 
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Motion and background follow System Configuration (motion follows the OS
+// by default). "Still" and reduced motion draw single frames, "Off" hides it.
+let reduceMotion = reducedMotion() || getSettings().background === 'still';
 
 function init(host: HTMLElement) {
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'low-power' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+  // Phones get fewer pixels: the backdrop is blurred and dimmed there anyway.
+  renderer.setPixelRatio(Math.min(devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1 : 1.5));
   renderer.setClearColor(0x01030a);
   host.appendChild(renderer.domElement);
 
@@ -187,11 +191,16 @@ function init(host: HTMLElement) {
     renderer.render(scene, camera);
   }
 
-  if (reduceMotion) {
-    frame(performance.now());
-  } else {
-    renderer.setAnimationLoop(frame);
+  function run() {
+    const s = getSettings();
+    reduceMotion = reducedMotion(s) || s.background === 'still';
+    const live = s.background !== 'off' && !reduceMotion;
+    renderer.setAnimationLoop(live ? frame : null);
+    if (!live && s.background !== 'off') frame(performance.now());
   }
+  run();
+  addEventListener('rw:settings', run);
+  document.addEventListener('astro:after-swap', run);
 
   addEventListener('rw:scene', (e) => {
     const { mode: m, hue } = (e as CustomEvent<SceneEvent>).detail;

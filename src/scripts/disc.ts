@@ -5,6 +5,7 @@
 
 import { bootFile, openDisc } from './iso';
 import { play } from './sound';
+import { tc } from '../i18n';
 
 interface DiscFile {
   file: string;
@@ -72,7 +73,7 @@ function setup(root: HTMLElement) {
         name,
         from,
         sha1: hash,
-        detail: mine.release ? `${mine.file}, ${mine.release} release: supported.` : `${mine.file}: supported.`,
+        detail: mine.release ? tc('dSupportedRelease', { file: mine.file, release: mine.release }) : tc('dSupported', { file: mine.file }),
       };
     }
     const elsewhere = data.known.find((k) => k.sha1 === hash);
@@ -82,8 +83,13 @@ function setup(root: HTMLElement) {
         name,
         from,
         sha1: hash,
-        detail: `This is ${elsewhere.title}'s ${elsewhere.file}${elsewhere.release ? ` (${elsewhere.release})` : ''}, not ${data.title}.`,
-        link: { href: elsewhere.href, text: `Go to ${elsewhere.title}` },
+        detail: tc('dOtherGame', {
+          title: elsewhere.title,
+          file: elsewhere.file,
+          release: elsewhere.release ? ` (${elsewhere.release})` : '',
+          current: data.title,
+        }),
+        link: { href: elsewhere.href, text: tc('dGoTo', { title: elsewhere.title }) },
       };
     }
     const sameName = data.files.find((f) => upper(f.file) === upper(name));
@@ -93,7 +99,7 @@ function setup(root: HTMLElement) {
         name,
         from,
         sha1: hash,
-        detail: `A different version of ${sameName.file}: another revision, a different region, or a modified file. The port is built against the one listed above.`,
+        detail: tc('dOtherVersion', { file: sameName.file }),
       };
     }
     const otherName = data.known.find((k) => upper(k.file) === upper(name) && k.slug !== data.slug);
@@ -103,8 +109,8 @@ function setup(root: HTMLElement) {
         name,
         from,
         sha1: hash,
-        detail: `${name} belongs to ${otherName.title}, not ${data.title}, and this copy is not the version that port supports either.`,
-        link: { href: otherName.href, text: `Go to ${otherName.title}` },
+        detail: tc('dOtherName', { name, title: otherName.title, current: data.title }),
+        link: { href: otherName.href, text: tc('dGoTo', { title: otherName.title }) },
       };
     }
     return {
@@ -112,7 +118,7 @@ function setup(root: HTMLElement) {
       name,
       from,
       sha1: hash,
-      detail: `Not a file this port checks. Look for ${data.files.map((f) => f.file).join(' or ')} on your disc.`,
+      detail: tc('dUnknown', { files: data.files.map((f) => f.file).join(tc('dOr')) }),
     };
   }
 
@@ -130,14 +136,14 @@ function setup(root: HTMLElement) {
           verdict: 'unknown',
           name: label,
           detail: boot
-            ? `This disc boots ${boot}, which is not a game on this site.`
-            : `None of the files this port checks are on it (${data.files.map((f) => f.file).join(', ')}).`,
+            ? tc('dBootsOther', { boot })
+            : tc('dNoneOnDisc', { files: data.files.map((f) => f.file).join(', ') }),
         },
       ];
     }
     const out: Result[] = [];
     for (const e of wanted) {
-      status.textContent = `Checking ${e.name}…`;
+      status.textContent = tc('dChecking', { name: e.name });
       out.push(classify(e.name, await sha1(await e.read()), label));
     }
     return out;
@@ -145,10 +151,10 @@ function setup(root: HTMLElement) {
 
   async function checkFile(file: File): Promise<Result[]> {
     if (COMPRESSED_EXT.test(file.name)) {
-      return [{ verdict: 'error', name: file.name, detail: 'Compressed images cannot be read here. Extract it to an .iso first, or drop the game executable itself.' }];
+      return [{ verdict: 'error', name: file.name, detail: tc('dCompressed') }];
     }
     if (IMAGE_EXT.test(file.name) || file.size > 64e6) {
-      status.textContent = `Reading ${file.name}…`;
+      status.textContent = tc('dReading', { name: file.name });
       const disc = await openDisc(file);
       if (disc) {
         return checkSet(
@@ -157,13 +163,13 @@ function setup(root: HTMLElement) {
         );
       }
       if (IMAGE_EXT.test(file.name)) {
-        return [{ verdict: 'error', name: file.name, detail: 'This image could not be read as a PS2 disc (ISO 9660). Try the game executable itself.' }];
+        return [{ verdict: 'error', name: file.name, detail: tc('dNotIso') }];
       }
     }
     if (file.size > MAX_LOOSE_FILE) {
-      return [{ verdict: 'error', name: file.name, detail: 'Too large to check, and not a disc image this page can read.' }];
+      return [{ verdict: 'error', name: file.name, detail: tc('dTooLarge') }];
     }
-    status.textContent = `Checking ${file.name}…`;
+    status.textContent = tc('dChecking', { name: file.name });
     return [classify(file.name, await sha1(await file.arrayBuffer()))];
   }
 
@@ -175,7 +181,7 @@ function setup(root: HTMLElement) {
         const body = el('div');
         const title = el('strong', undefined, r.name);
         body.append(title);
-        if (r.from) body.append(el('small', 'from', ` in ${r.from}`));
+        if (r.from) body.append(el('small', 'from', tc('dIn', { from: r.from })));
         body.append(el('p', undefined, r.detail));
         if (r.sha1) body.append(el('code', undefined, `SHA-1 ${r.sha1}`));
         if (r.link) {
@@ -197,17 +203,17 @@ function setup(root: HTMLElement) {
     let text: string;
     if (done) {
       tone = 'ok';
-      text = `Your copy matches. It works with this port.`;
+      text = tc('dVerdictOk');
     } else if (matched.size) {
       tone = 'warn';
       const missing = data.files.filter((f) => !matched.has(f.sha1)).map((f) => f.file);
-      text = `Good so far. Still to check: ${missing.join(', ')}.`;
+      text = tc('dVerdictSoFar', { files: missing.join(', ') });
     } else if (seen.some((r) => r.verdict === 'other-game')) {
-      text = `That is a different game.`;
+      text = tc('dVerdictOtherGame');
     } else if (seen.some((r) => r.verdict === 'other-version')) {
-      text = `Right game, different version. This port needs the exact version listed.`;
+      text = tc('dVerdictOtherVersion');
     } else {
-      text = `No match yet.`;
+      text = tc('dVerdictNone');
     }
     verdict.hidden = false;
     verdict.dataset.tone = tone;
@@ -217,11 +223,11 @@ function setup(root: HTMLElement) {
 
   async function run(work: () => Promise<Result[]>) {
     root.classList.add('busy');
-    status.textContent = 'Checking disc…';
+    status.textContent = tc('dCheckingDisc');
     try {
       seen.unshift(...(await work()));
     } catch (err) {
-      seen.unshift({ verdict: 'error', name: 'Could not read the file', detail: String((err as Error)?.message ?? err) });
+      seen.unshift({ verdict: 'error', name: tc('dReadError'), detail: String((err as Error)?.message ?? err) });
     } finally {
       root.classList.remove('busy');
       status.textContent = '';

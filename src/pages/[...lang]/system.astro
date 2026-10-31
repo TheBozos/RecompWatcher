@@ -1,0 +1,317 @@
+---
+// System Configuration, like the PS2's: a list of settings changed with
+// left/right (or ✕ / a tap to step through), plus version information.
+import Base from '../../layouts/Base.astro';
+import { getProjects } from '../../lib/github';
+import { formatDate, langPaths, localHref, useT, type Lang } from '../../i18n';
+
+export const getStaticPaths = langPaths;
+
+const lang = Astro.props.lang as Lang;
+const t = useT(lang);
+const all = await getProjects();
+const games = all.filter((p) => p.kind === 'game').length;
+const authors = new Set(all.map((p) => p.author.login)).size;
+
+const rows: { key: string; label: string; help?: string; options: [string, string][] }[] = [
+  { key: 'lang', label: t('sysLanguage'), help: t('sysLanguageHelp'), options: [['en', 'English'], ['fr', 'Français']] },
+  { key: 'sound', label: t('sysSound'), help: t('sysSoundHelp'), options: [['true', t('sysOn')], ['false', t('sysOff')]] },
+  {
+    key: 'intro',
+    label: t('sysIntro'),
+    help: t('sysIntroHelp'),
+    options: [['session', t('sysIntroSession')], ['always', t('sysIntroAlways')], ['never', t('sysIntroNever')]],
+  },
+  {
+    key: 'motion',
+    label: t('sysMotion'),
+    help: t('sysMotionHelp'),
+    options: [['system', t('sysMotionSystem')], ['full', t('sysMotionFull')], ['reduced', t('sysMotionReduced')]],
+  },
+  {
+    key: 'background',
+    label: t('sysBackground'),
+    help: t('sysBackgroundHelp'),
+    options: [['towers', t('sysBackgroundTowers')], ['still', t('sysBackgroundStill')], ['off', t('sysBackgroundOff')]],
+  },
+  { key: 'clock', label: t('sysClock'), options: [['24', t('sysClock24')], ['12', t('sysClock12')]] },
+];
+const defaults: Record<string, string> = { lang, sound: 'false', intro: 'session', motion: 'system', background: 'towers', clock: '24' };
+const builtAt = new Date().toISOString();
+---
+
+<Base
+  lang={lang}
+  path="system/"
+  title={`${t('sysTitle')} · Recomp Watcher`}
+  hints={[
+    { button: 'cross', label: t('hintChange') },
+    { button: 'circle', label: t('hintBack') },
+  ]}
+>
+  <div class="system">
+    <nav class="crumbs">
+      <a href={localHref(lang)} data-back>{t('navBrowser')}</a>
+    </nav>
+    <h1>{t('sysTitle')}</h1>
+
+    <ul class="rows panel">
+      {
+        rows.map((row, i) => {
+          const current = row.options.find(([v]) => v === defaults[row.key]) ?? row.options[0];
+          return (
+            <li>
+              <button
+                type="button"
+                class="row"
+                data-nav
+                data-adjust
+                data-autofocus={i === 0 ? '' : undefined}
+                data-setting={row.key}
+                data-options={JSON.stringify(row.options)}
+                aria-describedby={row.help ? `help-${row.key}` : undefined}
+              >
+                <span class="label">
+                  {row.label}
+                  {row.help && (
+                    <small id={`help-${row.key}`} class="help">
+                      {row.help}
+                    </small>
+                  )}
+                </span>
+                <span class="value">
+                  <span class="arrow" data-step="-1" aria-hidden="true">
+                    ‹
+                  </span>
+                  <span class="current" data-value>
+                    {current[1]}
+                  </span>
+                  <span class="arrow" data-step="1" aria-hidden="true">
+                    ›
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })
+      }
+    </ul>
+
+    <section class="version panel" aria-labelledby="version-title">
+      <h2 id="version-title" class="eyebrow">{t('sysVersion')}</h2>
+      <dl>
+        <div>
+          <dt>{t('vBuilt')}</dt>
+          <dd><time datetime={builtAt}>{formatDate(lang, builtAt)}</time></dd>
+        </div>
+        <div>
+          <dt>{t('vProjects')}</dt>
+          <dd>{t('vProjectsValue', { games, tools: all.length - games, authors })}</dd>
+        </div>
+        <div>
+          <dt>{t('vData')}</dt>
+          <dd>{t('vDataValue')}</dd>
+        </div>
+        <div>
+          <dt>{t('vFeed')}</dt>
+          <dd><a href={localHref('en', 'feed.xml')}>feed.xml</a></dd>
+        </div>
+        <div>
+          <dt>{t('vSource')}</dt>
+          <dd>
+            <a href="https://github.com/boubou666/RecompWatcher" target="_blank" rel="noopener">github.com/boubou666/RecompWatcher ↗</a>
+          </dd>
+        </div>
+      </dl>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { navigate } from 'astro:transitions/client';
+  import { getSettings, setSettings, type Settings } from '../../scripts/settings';
+  import { setSound } from '../../scripts/sound';
+  import { localHref, pageLang, type Lang } from '../../i18n';
+
+  type Row = HTMLElement & { dataset: { setting: keyof Settings; options: string } };
+
+  const options = (row: Row) => JSON.parse(row.dataset.options) as [string, string][];
+  const valueOf = (key: keyof Settings) => (key === 'lang' ? pageLang() : String(getSettings()[key]));
+
+  function show(row: Row) {
+    const opts = options(row);
+    const value = valueOf(row.dataset.setting);
+    row.querySelector('[data-value]')!.textContent = (opts.find(([v]) => v === value) ?? opts[0])[1];
+  }
+
+  function step(row: Row, by: number) {
+    const opts = options(row);
+    const key = row.dataset.setting;
+    const i = opts.findIndex(([v]) => v === valueOf(key));
+    const [value] = opts[(i + by + opts.length) % opts.length];
+    if (key === 'lang') {
+      setSettings({ lang: value as Lang });
+      navigate(localHref(value as Lang, 'system/'));
+      return;
+    }
+    if (key === 'sound') setSound(value === 'true');
+    else setSettings({ [key]: value } as Partial<Settings>);
+    show(row);
+  }
+
+  document.addEventListener('click', (e) => {
+    const row = (e.target as HTMLElement).closest<Row>('[data-setting]');
+    if (!row) return;
+    const arrow = (e.target as HTMLElement).closest<HTMLElement>('[data-step]');
+    step(row, arrow ? Number(arrow.dataset.step) : 1);
+  });
+  document.addEventListener('rw:adjust', (e) => {
+    const row = (e.target as HTMLElement).closest<Row>('[data-setting]');
+    if (row) step(row, (e as CustomEvent<number>).detail);
+  });
+  document.addEventListener('astro:page-load', () => {
+    document.querySelectorAll<Row>('[data-setting]').forEach(show);
+  });
+</script>
+
+<style>
+  .system {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 18px var(--gutter) 40px;
+  }
+  .crumbs a {
+    font-size: 0.85rem;
+    color: var(--ink-dim);
+    text-decoration: none;
+  }
+  h1 {
+    margin: 14px 0 22px;
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    font-weight: 300;
+    text-shadow: var(--glow);
+  }
+  .rows {
+    list-style: none;
+    margin: 0;
+    padding: 8px;
+  }
+  .row {
+    width: 100%;
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    font: inherit;
+    text-align: left;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  li + li .row {
+    border-top-color: var(--line);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+  .row:is(:hover, :focus, :focus-visible) {
+    background: linear-gradient(90deg, rgb(110 150 255 / 0.2), rgb(110 150 255 / 0.04));
+    border-color: rgb(160 190 255 / 0.4);
+    border-radius: 10px;
+  }
+  .row:is(:focus, :focus-visible) .label {
+    text-shadow: var(--glow);
+  }
+  .label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 1rem;
+  }
+  .help {
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    text-shadow: none;
+  }
+  .value {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #cfe0ff;
+  }
+  .current {
+    min-width: 9.5em;
+    text-align: center;
+  }
+  .arrow {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 1.3rem;
+    color: var(--ink-dim);
+  }
+  .arrow:hover {
+    background: rgb(255 255 255 / 0.08);
+    color: var(--ink);
+  }
+  .row:not(:focus):not(:hover) .arrow {
+    opacity: 0.35;
+  }
+
+  .version {
+    margin-top: 26px;
+    padding: 18px 22px;
+  }
+  .version dl {
+    display: grid;
+    gap: 10px;
+    margin: 12px 0 0;
+  }
+  .version dl div {
+    display: grid;
+    grid-template-columns: 9em minmax(0, 1fr);
+    gap: 12px;
+  }
+  .version dt {
+    color: var(--ink-faint);
+    font-size: 0.85rem;
+  }
+  .version dd {
+    margin: 0;
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 600px) {
+    .row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    .value {
+      justify-content: space-between;
+    }
+    .current {
+      min-width: 0;
+      flex: 1;
+    }
+    .row .arrow {
+      opacity: 1 !important;
+      background: rgb(255 255 255 / 0.06);
+      width: 44px;
+      height: 44px;
+    }
+    .version dl div {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+  }
+</style>

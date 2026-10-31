@@ -2,16 +2,18 @@
 // A memory-card style block meter: one block per checklist item, lit when
 // done, half-lit while in progress.
 import type { Step } from '../lib/github';
+import { useT, type Lang } from '../i18n';
 
 interface Props {
   steps: Step[];
   size?: 'sm' | 'lg';
-  label?: string;
+  lang: Lang;
 }
-const { steps, size = 'sm', label = 'milestones' } = Astro.props;
+const { steps, size = 'sm', lang } = Astro.props;
+const t = useT(lang);
 const done = steps.filter((s) => s === 'done').length;
 const wip = steps.filter((s) => s === 'wip').length;
-const summary = `${done} of ${steps.length} ${label} done${wip ? `, ${wip} in progress` : ''}`;
+const summary = t('blocksSummary', { done, total: steps.length }) + (wip ? t('blocksWip', { n: wip }) : '');
 ---
 
 <div class={`blocks ${size}`} role="img" aria-label={summary} title={summary}>

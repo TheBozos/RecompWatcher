@@ -2,25 +2,28 @@
 // A project's progress: every change of its README status badge on a
 // timeline, next to its latest commits.
 import type { Project } from '../lib/github';
+import { formatDate, useT, type Lang } from '../i18n';
 
 interface Props {
   project: Project;
+  lang: Lang;
 }
-const { project: p } = Astro.props;
-const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const { project: p, lang } = Astro.props;
+const t = useT(lang);
+const date = (iso: string) => formatDate(lang, iso);
 const steps = p.statusHistory;
 ---
 
 <section id="progress" class="progress panel" aria-labelledby="progress-title">
   <div class="timeline">
-    <p class="eyebrow">Progress</p>
-    <h2 id="progress-title">Status history</h2>
+    <p class="eyebrow">{t('progEyebrow')}</p>
+    <h2 id="progress-title">{t('statusHistory')}</h2>
     <ol>
       <li class="node start">
         <span class="dot" aria-hidden="true"></span>
         <div>
           <time datetime={p.createdAt}>{date(p.createdAt)}</time>
-          <strong>Project started</strong>
+          <strong>{t('projectStarted')}</strong>
         </div>
       </li>
       {
@@ -45,7 +48,7 @@ const steps = p.statusHistory;
   {
     p.commits.length > 0 && (
       <div class="recent">
-        <p class="eyebrow">Latest work</p>
+        <p class="eyebrow">{t('latestWork')}</p>
         <ul>
           {p.commits.map((c) => (
             <li>
@@ -59,7 +62,7 @@ const steps = p.statusHistory;
           ))}
         </ul>
         <a class="all" href={`${p.url}/commits`} target="_blank" rel="noopener">
-          All commits ↗
+          {t('allCommits')}
         </a>
       </div>
     )

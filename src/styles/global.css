@@ -52,6 +52,13 @@ body {
   inset: 0;
   z-index: 0;
 }
+:root[data-background='off'] #scene {
+  display: none;
+}
+:root[data-motion='reduced']::view-transition-old(*),
+:root[data-motion='reduced']::view-transition-new(*) {
+  animation: none !important;
+}
 #scene canvas {
   display: block;
   width: 100%;
@@ -98,7 +105,7 @@ a {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px var(--gutter) 0;
+  padding: max(18px, env(safe-area-inset-top)) var(--gutter) 0;
 }
 .brand {
   text-decoration: none;
@@ -116,6 +123,35 @@ a {
 .brand-sub {
   font-weight: 300;
   color: var(--ink-dim);
+}
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 18px;
+}
+.topnav a {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+  text-decoration: none;
+}
+.topnav a:hover,
+.topnav a:focus-visible {
+  color: var(--ink);
+  background: rgb(255 255 255 / 0.06);
+}
+.topnav a[aria-current='page'] {
+  color: var(--ink);
+  text-shadow: var(--glow);
+}
+.topnav .lang {
+  border: 1px solid var(--line);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
 }
 .clock {
   font-size: 0.85rem;
@@ -269,11 +305,46 @@ button.hint {
   from { opacity: 0; scale: 0.97; filter: blur(6px); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-}
+/* Reduced motion: the System Configuration setting, which follows the OS by default. */
+:root[data-motion='reduced'] { scroll-behavior: auto; }
+
 
 @media (max-width: 600px) {
   .hints { font-size: 0.78rem; }
   .hint-row .hint:nth-child(n + 3) { display: none; }
+}
+
+/* Phones and tablets ---------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  .clock { display: none; }
+  .topnav { margin-right: 0; }
+}
+@media (max-width: 440px) {
+  .topbar { gap: 8px; padding-top: 14px; }
+  .brand { font-size: 0.72rem; letter-spacing: 0.18em; }
+  .topnav { gap: 0; }
+  .topnav a { padding: 8px 7px; font-size: 0.74rem; letter-spacing: 0.04em; }
+}
+
+/* Touch screens: no controller to hint at, so the bar keeps only the sound toggle. */
+.touch-only { display: none; }
+@media (pointer: coarse) {
+  .touch-only { display: revert; }
+  .pointer-only { display: none !important; }
+  .hint-row { display: none; }
+  .hints {
+    left: auto;
+    justify-content: flex-end;
+    padding: 0 var(--gutter) calc(12px + env(safe-area-inset-bottom));
+    background: none;
+  }
+  .hints .sound {
+    padding: 8px 14px 8px 10px;
+    border-radius: 999px;
+    background: var(--glass);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+  }
+  body { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 }

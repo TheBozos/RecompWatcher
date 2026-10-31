@@ -7,6 +7,9 @@ Built with [Astro](https://astro.build) (static pages, view transitions) and [th
 (the boot towers in the background). Arrow keys or a gamepad move around the menu; ✕/Enter opens,
 ○/Esc goes back, L1/R1 (Page Up/Down) flip between projects.
 
+Also in English and French (`/fr/`), usable on phones and tablets, with a System Configuration page (sound,
+startup screen, motion, background, clock), share cards for links, an RSS feed (`/feed.xml`) and NEW badges.
+
 ## How it works
 
 - The project list lives in [`src/data/projects.ts`](src/data/projects.ts): repo, title, icon letters, colour, serial.
@@ -17,6 +20,8 @@ Built with [Astro](https://astro.build) (static pages, view transitions) and [th
   - the `platform` and `status` badges and any screenshots it contains,
   - the latest release and its assets, which become the **Download** buttons (Windows / Linux / macOS
     are guessed from the file names).
+- Interface text lives in [`src/i18n/index.ts`](src/i18n/index.ts) (English and French); project content stays as the
+  repos write it.
 - Want a download link before cutting a release? Add `downloads: [{ label, url, os }]` to the project in `projects.ts`.
 
 ## Develop

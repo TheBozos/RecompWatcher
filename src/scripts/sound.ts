@@ -1,22 +1,15 @@
 // Small synthesized menu sounds, off until the visitor turns them on.
 
+import { getSettings, setSettings } from './settings';
+
 type Cue = 'move' | 'confirm' | 'back';
 
-const KEY = 'rw-sound';
 let ctx: AudioContext | undefined;
 
-export function soundOn(): boolean {
-  try {
-    return localStorage.getItem(KEY) === '1';
-  } catch {
-    return false;
-  }
-}
+export const soundOn = () => getSettings().sound;
 
 export function setSound(on: boolean) {
-  try {
-    localStorage.setItem(KEY, on ? '1' : '0');
-  } catch {}
+  setSettings({ sound: on });
   if (on) play('confirm');
 }
 

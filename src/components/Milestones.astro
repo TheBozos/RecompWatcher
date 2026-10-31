@@ -3,43 +3,46 @@
 // native-port layers when the README has such a table.
 import type { Checklist, Project } from '../lib/github';
 import Blocks from './Blocks.astro';
+import { useT, type Lang } from '../i18n';
 
 interface Props {
   project: Project;
+  lang: Lang;
 }
-const { project: p } = Astro.props;
-const lists = [
-  p.milestones && { list: p.milestones, title: 'Milestones', noun: 'milestones' },
-  p.nativeLayers && { list: p.nativeLayers, title: 'Native port', noun: 'layers native' },
-].filter(Boolean) as { list: Checklist; title: string; noun: string }[];
+const { project: p, lang } = Astro.props;
+const t = useT(lang);
 const count = (l: Checklist, step: string) => l.items.filter((i) => i.step === step).length;
-const word = { done: 'Done', wip: 'In progress', todo: 'Not reached yet' };
+const lists = [
+  p.milestones && { list: p.milestones, title: t('msEyebrow'), key: 'msDone' as const },
+  p.nativeLayers && { list: p.nativeLayers, title: t('nativeEyebrow'), key: 'nativeDone' as const },
+].filter(Boolean) as { list: Checklist; title: string; key: 'msDone' | 'nativeDone' }[];
+const word = { done: t('stepDone'), wip: t('stepWip'), todo: t('stepTodo') };
 ---
 
-<section id="milestones" class="milestones panel" aria-label="Milestones">
+<section id="milestones" class="milestones panel" aria-label={t('msEyebrow')}>
   {
-    lists.map(({ list, title, noun }) => (
+    lists.map(({ list, title, key }) => (
       <div class="list">
         <header>
           <p class="eyebrow">{title}</p>
           <h2>
-            {count(list, 'done')} of {list.items.length} {noun === 'milestones' ? 'done' : noun}
-            {count(list, 'wip') > 0 && <span class="wip-count">· {count(list, 'wip')} in progress</span>}
+            {t(key, { done: count(list, 'done'), total: list.items.length })}
+            {count(list, 'wip') > 0 && <span class="wip-count">· {t('inProgress', { n: count(list, 'wip') })}</span>}
           </h2>
-          <Blocks steps={list.items.map((i) => i.step)} size="lg" label={noun} />
+          <Blocks steps={list.items.map((i) => i.step)} size="lg" lang={lang} />
         </header>
         <ul>
           {list.items.map((item) => (
             <li class={item.step}>
               <span class="tick" aria-label={word[item.step]} />
-              <span set:html={item.html} />
+              <span lang="en" set:html={item.html} />
             </li>
           ))}
         </ul>
       </div>
     ))
   }
-  <p class="source">From the checklist in the project's README.</p>
+  <p class="source">{t('msSource')}</p>
 </section>
 
 <style>
