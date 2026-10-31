@@ -44,7 +44,9 @@ function init(host: HTMLElement) {
   const camera = new PerspectiveCamera(50, 1, 0.1, 120);
 
   // Towers ------------------------------------------------------------------
-  const GRID = 34;
+  // Touch devices (phones, tablets) get fewer towers and half the frame rate.
+  const light = matchMedia('(pointer: coarse)').matches;
+  const GRID = light ? 24 : 34;
   const GAP = 1.6;
   const count = GRID * GRID;
   const towerMat = new MeshPhongMaterial({
@@ -137,22 +139,37 @@ function init(host: HTMLElement) {
   resize();
   addEventListener('resize', resize);
 
-  function frame(now: number) {
-    const t = now / 1000;
-    const sinceMode = (now - modeAt) / 1000;
+  // Tower matrices are only rewritten while they rise (the boot); afterwards
+  // they stand still and only the camera, light and specks move.
+  let settled = false;
+  let lastFrame = 0;
 
-    // Rising towers during boot; a gentle swell otherwise.
-    const rise = mode === 'boot' ? sinceMode * 0.9 : 99;
+  function placeTowers(rise: number) {
     for (let i = 0; i < count; i++) {
       const grow = reduceMotion ? 1 : MathUtils.smootherstep(rise - delays[i], 0, 1);
-      const breathe = reduceMotion ? 1 : 1 + Math.sin(t * 0.6 + pos[i][0] * 0.4 + pos[i][1] * 0.3) * 0.08;
-      const h = Math.max(0.001, heights[i] * grow * breathe);
+      const h = Math.max(0.001, heights[i] * grow);
       dummy.position.set(pos[i][0], h / 2, pos[i][1]);
       dummy.scale.set(1, h, 1);
       dummy.updateMatrix();
       towers.setMatrixAt(i, dummy.matrix);
     }
     towers.instanceMatrix.needsUpdate = true;
+  }
+
+  function frame(now: number) {
+    if (light && now - lastFrame < 30) return;
+    lastFrame = now;
+    const t = now / 1000;
+    const sinceMode = (now - modeAt) / 1000;
+
+    if (mode === 'boot' && !reduceMotion) {
+      const rise = sinceMode * 0.9;
+      placeTowers(rise);
+      settled = rise > 3;
+    } else if (!settled) {
+      placeTowers(99);
+      settled = true;
+    }
 
     if (!reduceMotion) {
       const p = speckGeo.attributes.position as BufferAttribute;
@@ -198,13 +215,18 @@ function init(host: HTMLElement) {
     renderer.setAnimationLoop(live ? frame : null);
     if (!live && s.background !== 'off') frame(performance.now());
   }
-  run();
+  // Compile the shaders off the main thread where the browser allows it, then start.
+  void renderer
+    .compileAsync(scene, camera)
+    .catch(() => {})
+    .then(run);
   addEventListener('rw:settings', run);
   document.addEventListener('astro:after-swap', run);
 
   addEventListener('rw:scene', (e) => {
     const { mode: m, hue } = (e as CustomEvent<SceneEvent>).detail;
     if (m && m !== mode) {
+      if (m === 'boot') settled = false;
       mode = m;
       modeAt = performance.now();
     }

@@ -253,6 +253,9 @@ function rewriteReadme(html: string, owner: string, repo: string, branch: string
       // Heading permalink icons: keep the anchor target, drop the octicon.
       .replace(/<a id="(user-content-[^"]+)" class="anchor"[^>]*>[\s\S]*?<\/a>/g, '<span id="$1" class="anchor"></span>')
       .replace(/(<img[^>]*?\ssrc=")([^"]+)"/g, (_, pre, src) => `${pre}${isRelative(src) ? raw(src) : src}"`)
+      // Images without alt text get one from their file name; all load lazily.
+      .replace(/<img(?![^>]*\salt=)([^>]*?\ssrc="([^"]+)")/g, (_, rest, src) => `<img alt="${captionFromFile(src.split('/').pop() ?? '')}"${rest}`)
+      .replace(/<img(?![^>]*\sloading=)/g, '<img loading="lazy" decoding="async"')
       .replace(/(<a[^>]*?\shref=")([^"]+)"/g, (_, pre, href) => {
         if (href.startsWith('#') && !href.startsWith('#user-content-')) return `${pre}#user-content-${href.slice(1)}"`;
         if (!isRelative(href)) return `${pre}${href}"`;

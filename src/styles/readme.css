@@ -70,7 +70,20 @@
 .markdown-body a > img[src*='camo.githubusercontent'],
 .markdown-body img[data-canonical-src*='shields.io'] {
   border-radius: 4px;
-  margin: 2px 1px;
+}
+/* Badge links: a 24px tap target each, with room between them. */
+.markdown-body img[data-canonical-src*='shields.io'] {
+  height: 20px;
+  width: auto;
+}
+.markdown-body a:has(> img[data-canonical-src*='shields.io']) {
+  display: inline-block;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 2px;
+  margin: 2px 3px;
+  line-height: 0;
+  vertical-align: middle;
 }
 .markdown-body p:has(> a > img:not([data-canonical-src])) img {
   border-radius: 8px;

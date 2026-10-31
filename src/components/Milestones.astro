@@ -40,7 +40,7 @@ const word = { done: t('stepDone'), wip: t('stepWip'), todo: t('stepTodo') };
         <ul>
           {list.items.map((item) => (
             <li class={item.step}>
-              <span class="tick" aria-label={word[item.step]} />
+              <span class="tick" role="img" aria-label={word[item.step]} />
               <span lang="en" set:html={item.html} />
             </li>
           ))}

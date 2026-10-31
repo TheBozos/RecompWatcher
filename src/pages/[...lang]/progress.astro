@@ -70,13 +70,13 @@ const columns = [
               return (
                 <tr
                   style={`--h:${p.hue}`}
-                  data-title={p.title.toLowerCase()}
-                  data-status={statusRank(p)}
-                  data-milestones={ratio(ms)}
-                  data-native={ratio(nl)}
-                  data-disc={p.serial ?? ''}
-                  data-platforms={p.platforms.length}
-                  data-activity={activity}
+                  data-sort-title={p.title.toLowerCase()}
+                  data-sort-status={statusRank(p)}
+                  data-sort-milestones={ratio(ms)}
+                  data-sort-native={ratio(nl)}
+                  data-sort-disc={p.serial ?? ''}
+                  data-sort-platforms={p.platforms.length}
+                  data-sort-activity={activity}
                 >
                   <th scope="row" data-label={t('colGame')}>
                     <a href={localHref(lang, `p/${p.slug}/`)} data-nav class="game">
@@ -157,7 +157,7 @@ const columns = [
     if (!table) return;
     const type = table.querySelector<HTMLElement>(`[data-sort="${key}"]`)?.dataset.type;
     const rows = [...table.tBodies[0].rows];
-    const value = (r: HTMLTableRowElement) => r.dataset[key] ?? '';
+    const value = (r: HTMLTableRowElement) => r.dataset[`sort${key[0].toUpperCase()}${key.slice(1)}`] ?? '';
     rows.sort((a, b) => {
       const cmp = type === 'number' ? Number(value(a)) - Number(value(b)) : value(a).localeCompare(value(b));
       return dir === 'ascending' ? cmp : -cmp;

@@ -128,8 +128,13 @@ const pageAnim = { forwards: zoom, backwards: zoom };
       import '../scripts/time';
       // Installable app: the service worker keeps visited pages readable offline.
       registerSW({ immediate: true });
-      // Three.js is the heavy part; the menu works without it, so load it after.
-      void import('../scripts/scene');
+      // Three.js is the heavy part; the menu works without it, so it loads once
+      // the page has loaded and the browser is idle.
+      const startScene = () => void import('../scripts/scene');
+      const whenIdle = () =>
+        'requestIdleCallback' in window ? requestIdleCallback(startScene, { timeout: 2500 }) : setTimeout(startScene, 600);
+      if (document.readyState === 'complete') whenIdle();
+      else addEventListener('load', whenIdle, { once: true });
     </script>
   </body>
 </html>
