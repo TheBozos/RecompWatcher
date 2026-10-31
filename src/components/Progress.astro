@@ -1,0 +1,196 @@
+---
+// A project's progress: every change of its README status badge on a
+// timeline, next to its latest commits.
+import type { Project } from '../lib/github';
+
+interface Props {
+  project: Project;
+}
+const { project: p } = Astro.props;
+const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const steps = p.milestones;
+---
+
+<section id="progress" class="progress panel" aria-labelledby="progress-title">
+  <div class="timeline">
+    <p class="eyebrow">Progress</p>
+    <h2 id="progress-title">{steps.length > 1 ? `${steps.length} milestones` : 'Timeline'}</h2>
+    <ol>
+      <li class="node start">
+        <span class="dot" aria-hidden="true"></span>
+        <div>
+          <time datetime={p.createdAt}>{date(p.createdAt)}</time>
+          <strong>Project started</strong>
+        </div>
+      </li>
+      {
+        steps.map((m, i) => (
+          <li class:list={['node', { now: i === steps.length - 1 }]} data-tone={m.tone}>
+            <span class="dot" aria-hidden="true" />
+            <div>
+              <time datetime={m.date}>{date(m.date)}</time>
+              <strong class="status" data-tone={m.tone}>
+                {m.status}
+              </strong>
+              <a href={m.commit.url} target="_blank" rel="noopener">
+                {m.commit.title}
+              </a>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+
+  {
+    p.commits.length > 0 && (
+      <div class="recent">
+        <p class="eyebrow">Latest work</p>
+        <ul>
+          {p.commits.map((c) => (
+            <li>
+              <a href={c.url} target="_blank" rel="noopener" title={c.title}>
+                {c.title}
+              </a>
+              <time datetime={c.date} data-ago>
+                {date(c.date)}
+              </time>
+            </li>
+          ))}
+        </ul>
+        <a class="all" href={`${p.url}/commits`} target="_blank" rel="noopener">
+          All commits ↗
+        </a>
+      </div>
+    )
+  }
+</section>
+
+<style>
+  .progress {
+    margin-top: 36px;
+    padding: 22px clamp(18px, 3vw, 32px);
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: 32px;
+  }
+  h2 {
+    margin: 6px 0 16px;
+    font-size: 1.5rem;
+    font-weight: 300;
+    text-shadow: var(--glow);
+  }
+
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+  }
+  /* The rail */
+  ol::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    background: linear-gradient(var(--line), hsl(var(--h) 90% 70% / 0.6));
+  }
+  .node {
+    position: relative;
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 14px;
+    padding: 0 0 18px;
+  }
+  .node:last-child {
+    padding-bottom: 0;
+  }
+  .dot {
+    position: relative;
+    width: 16px;
+    height: 16px;
+    margin-top: 3px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--tone, var(--line-strong));
+  }
+  .node[data-tone='good'] { --tone: var(--good); }
+  .node[data-tone='wip'] { --tone: var(--wip); }
+  .node[data-tone='early'] { --tone: var(--early); }
+  .now .dot {
+    background: var(--tone);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 25%, transparent), 0 0 16px var(--tone);
+  }
+  .node time {
+    display: block;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .node strong {
+    display: block;
+    margin: 2px 0;
+    font-weight: 500;
+  }
+  .node .status {
+    font-size: 0.95rem;
+  }
+  .node a {
+    font-size: 0.85rem;
+    color: var(--ink-dim);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  .node a:hover {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+
+  .recent ul {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+  }
+  .recent li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.88rem;
+  }
+  .recent li a {
+    color: var(--ink);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+  .recent li a:hover {
+    text-decoration: underline;
+  }
+  .recent time {
+    flex: none;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  .all {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 0.82rem;
+  }
+
+  @media (max-width: 860px) {
+    .progress {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

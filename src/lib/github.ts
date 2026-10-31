@@ -58,8 +58,37 @@ async function fetchCached<T>(endpoint: string, accept: string): Promise<T> {
   return body;
 }
 
+/**
+ * A file at a fixed commit, from raw.githubusercontent.com (outside the API
+ * rate limit). Content at a commit never changes, so it is cached for good.
+ */
+async function rawAt(owner: string, repo: string, sha: string, file: string): Promise<string> {
+  const cacheFile = path.join(CACHE_DIR, 'raw', `${owner}_${repo}_${sha}_${file.replace(/[^a-z0-9.]+/gi, '_')}`);
+  if (!process.env.CI) {
+    try {
+      return await readFile(cacheFile, 'utf8');
+    } catch {}
+  }
+  const res = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${sha}/${file}`);
+  if (!res.ok) throw new Error(`raw ${repo}@${sha}/${file}: ${res.status}`);
+  const text = await res.text();
+  if (!process.env.CI) {
+    await mkdir(path.dirname(cacheFile), { recursive: true });
+    await writeFile(cacheFile, text);
+  }
+  return text;
+}
+
+interface CommitResponse {
+  sha: string;
+  html_url: string;
+  author: { login: string } | null;
+  commit: { message: string; author: { date: string } };
+}
+
 interface RepoResponse {
   html_url: string;
+  created_at: string;
   description: string | null;
   default_branch: string;
   pushed_at: string;
@@ -103,6 +132,22 @@ export interface DiscFile {
   release?: string;
 }
 
+export interface Commit {
+  sha: string;
+  url: string;
+  /** First line of the commit message. */
+  title: string;
+  date: string;
+}
+
+/** A point where the README's status badge changed. */
+export interface Milestone {
+  date: string;
+  status: string;
+  tone: Tone;
+  commit: Commit;
+}
+
 export interface Project extends ProjectConfig {
   url: string;
   description: string;
@@ -120,6 +165,11 @@ export interface Project extends ProjectConfig {
    */
   disc: { files: DiscFile[]; mode: 'any' | 'all' };
   updatedAt: string;
+  createdAt: string;
+  /** Status changes, oldest first. */
+  milestones: Milestone[];
+  /** Latest commits by the owner, newest first. */
+  commits: Commit[];
   stars: number;
   language?: string;
   license?: string;
@@ -222,6 +272,39 @@ function parseDiscTable(html: string): Project['disc'] {
   return { files: [], mode: 'all' };
 }
 
+const toCommit = (c: CommitResponse): Commit => ({
+  sha: c.sha,
+  url: c.html_url,
+  title: c.commit.message.split('\n')[0],
+  date: c.commit.author.date,
+});
+
+/** The status badge in a README's Markdown source. */
+function statusOf(markdown: string) {
+  for (const [url] of markdown.matchAll(/https:\/\/img\.shields\.io\/badge\/[^)\s"?]+/g)) {
+    const badge = parseBadge(url);
+    if (badge?.label === 'status') return { text: badge.message, tone: toneFor(badge.color) };
+  }
+  return undefined;
+}
+
+/**
+ * Walks the README's history (up to its last 100 commits) and keeps each
+ * commit where the status badge changed.
+ */
+async function statusHistory(owner: string, repo: string, base: string): Promise<Milestone[]> {
+  const history = await gh<CommitResponse[]>(`${base}/commits?path=README.md&per_page=100`).catch(() => []);
+  const versions = await Promise.all(
+    history.map(async (c) => ({ commit: toCommit(c), status: statusOf(await rawAt(owner, repo, c.sha, 'README.md').catch(() => '')) })),
+  );
+  const milestones: Milestone[] = [];
+  for (const { commit, status } of versions.reverse()) {
+    if (!status || status.text === milestones.at(-1)?.status) continue;
+    milestones.push({ date: commit.date, status: status.text, tone: status.tone, commit });
+  }
+  return milestones;
+}
+
 /** "2026-10-29-black-rider.png" -> "Black rider" */
 function captionFromFile(name: string) {
   const words = name
@@ -243,11 +326,13 @@ async function optimise(src: string, width: number, height: number) {
 async function load(cfg: ProjectConfig): Promise<Project> {
   const owner = cfg.owner ?? OWNER;
   const base = `/repos/${owner}/${cfg.repo}`;
-  const [repo, readme, releases, shotDir] = await Promise.all([
+  const [repo, readme, releases, shotDir, milestones, commits] = await Promise.all([
     gh<RepoResponse>(base),
     gh<string>(`${base}/readme`, 'application/vnd.github.html').catch(() => ''),
     gh<ReleaseResponse[]>(`${base}/releases?per_page=10`).catch(() => [] as ReleaseResponse[]),
     gh<ContentEntry[]>(`${base}/contents/docs/screenshots`).catch(() => [] as ContentEntry[]),
+    statusHistory(owner, cfg.repo, base),
+    gh<CommitResponse[]>(`${base}/commits?per_page=40`).catch(() => [] as CommitResponse[]),
   ]);
   const raw = (p: string) => `https://raw.githubusercontent.com/${owner}/${cfg.repo}/${repo.default_branch}/${p}`;
 
@@ -301,6 +386,13 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     faces,
     disc: parseDiscTable(readmeHtml),
     updatedAt: repo.pushed_at,
+    createdAt: repo.created_at,
+    milestones,
+    // Only the owner's commits: a fork's history is mostly upstream's.
+    commits: commits
+      .filter((c) => c.author?.login === OWNER)
+      .slice(0, 8)
+      .map(toCommit),
     stars: repo.stargazers_count,
     language: repo.language ?? undefined,
     license: repo.license?.spdx_id && repo.license.spdx_id !== 'NOASSERTION' ? repo.license.spdx_id : undefined,
