@@ -54,6 +54,7 @@ const pageAnim = { forwards: zoom, backwards: zoom };
     <meta property="og:image:alt" content={title} />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="canonical" href={pageUrl} />
+    <link rel="alternate" type="application/rss+xml" title="Recomp Watcher" href={absolute('feed.xml')} />
     <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
     <title>{title}</title>
     <ClientRouter fallback="swap" />

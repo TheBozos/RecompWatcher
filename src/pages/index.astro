@@ -4,6 +4,7 @@ import SaveIcon from '../components/SaveIcon.astro';
 import Blocks from '../components/Blocks.astro';
 import AuthorTag from '../components/AuthorTag.astro';
 import { getProjects } from '../lib/github';
+import { BADGE_DAYS, eventsOf } from '../lib/events';
 
 const all = await getProjects();
 const games = all.filter((p) => p.kind === 'game');
@@ -43,6 +44,16 @@ const focusData = (p: (typeof all)[number]) => ({
     : '',
 });
 const msOf = (p: (typeof all)[number]) => p.milestones?.items.map((i) => i.step);
+
+// The badge a cube may wear: its latest event and until when (decided in the
+// browser, since the site is only rebuilt once a day).
+const BADGE_TEXT = { release: 'New build', status: 'Updated', start: 'New' };
+const badgeOf = (p: (typeof all)[number]) => {
+  const latest = eventsOf(p, '')[0];
+  if (!latest) return undefined;
+  const until = new Date(new Date(latest.date).getTime() + BADGE_DAYS[latest.kind] * 864e5).toISOString();
+  return { text: BADGE_TEXT[latest.kind], kind: latest.kind, until };
+};
 
 const meta = (p: (typeof all)[number]) =>
   [p.serial, p.region, p.platforms.length ? `PC: ${p.platforms.join(' / ')}` : p.system].filter(Boolean).join('  ·  ');
@@ -133,7 +144,14 @@ const meta = (p: (typeof all)[number]) =>
                       )}
                       <span class="slot-name">{p.title}</span>
                       {msOf(p) && <Blocks steps={msOf(p)!} />}
-                      {p.downloads.length > 0 && <span class="slot-badge">Download</span>}
+                      <span class="slot-badges">
+                        {badgeOf(p) && (
+                          <span class="slot-badge fresh" data-kind={badgeOf(p)!.kind} data-until={badgeOf(p)!.until} hidden>
+                            {badgeOf(p)!.text}
+                          </span>
+                        )}
+                        {p.downloads.length > 0 && <span class="slot-badge">Download</span>}
+                      </span>
                     </a>
                   </li>
                 ))}
@@ -146,7 +164,10 @@ const meta = (p: (typeof all)[number]) =>
     {
       activity.length > 0 && (
         <section class="group activity">
-          <h2 class="eyebrow">Recent activity</h2>
+          <div class="group-head">
+            <h2 class="eyebrow">Recent activity</h2>
+            <a class="feed-link" href={`${base}feed.xml`}>RSS feed</a>
+          </div>
           <ul>
             {activity.map((c) => (
               <li>
@@ -234,6 +255,14 @@ const meta = (p: (typeof all)[number]) =>
   document.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-author-filter]');
     if (btn) filterBy(btn.dataset.authorFilter ?? '');
+  });
+
+  // Badges for recent events, shown until their date passes.
+  document.addEventListener('astro:page-load', () => {
+    const now = Date.now();
+    for (const b of document.querySelectorAll<HTMLElement>('.slot-badge.fresh')) {
+      b.hidden = new Date(b.dataset.until!).getTime() < now;
+    }
   });
 
   document.addEventListener('astro:page-load', () => {
@@ -524,10 +553,34 @@ const meta = (p: (typeof all)[number]) =>
   .slot:focus .slot-name {
     text-shadow: var(--glow);
   }
-  .slot-badge {
+  .slot-badges {
     position: absolute;
     top: 8px;
     right: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .slot-badge[hidden] {
+    display: none;
+  }
+  .slot-badge.fresh {
+    color: #fff;
+    border-color: hsl(var(--h) 90% 70%);
+    background: hsl(var(--h) 85% 45% / 0.75);
+    box-shadow: 0 0 10px hsl(var(--h) 90% 60% / 0.6);
+  }
+  .slot-badge.fresh[data-kind='release'] {
+    background: color-mix(in srgb, var(--good) 70%, black);
+    border-color: var(--good);
+  }
+  .feed-link {
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+    padding-bottom: 8px;
+  }
+  .slot-badge {
     font-size: 0.62rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;

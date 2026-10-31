@@ -175,6 +175,14 @@ export interface Author {
   avatarSource: string;
 }
 
+export interface Release {
+  tag: string;
+  name: string;
+  url: string;
+  date: string;
+  prerelease: boolean;
+}
+
 export interface Project extends ProjectConfig {
   owner: string;
   author: Author;
@@ -209,7 +217,9 @@ export interface Project extends ProjectConfig {
   language?: string;
   license?: string;
   upstream?: { name: string; url: string };
-  release?: { tag: string; name: string; url: string; date: string; prerelease: boolean };
+  /** The latest published release, and all of them (newest first). */
+  release?: Release;
+  releases: Release[];
   downloads: Download[];
 }
 
@@ -306,6 +316,14 @@ function parseDiscTable(html: string): Project['disc'] {
   }
   return { files: [], mode: 'all' };
 }
+
+const toRelease = (r: ReleaseResponse): Release => ({
+  tag: r.tag_name,
+  name: r.name || r.tag_name,
+  url: r.html_url,
+  date: r.published_at,
+  prerelease: r.prerelease,
+});
 
 const toCommit = (c: CommitResponse): Commit => ({
   sha: c.sha,
@@ -477,13 +495,8 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     language: repo.language ?? undefined,
     license: repo.license?.spdx_id && repo.license.spdx_id !== 'NOASSERTION' ? repo.license.spdx_id : undefined,
     upstream: repo.fork && repo.parent ? { name: repo.parent.full_name, url: repo.parent.html_url } : undefined,
-    release: release && {
-      tag: release.tag_name,
-      name: release.name || release.tag_name,
-      url: release.html_url,
-      date: release.published_at,
-      prerelease: release.prerelease,
-    },
+    release: release && toRelease(release),
+    releases: releases.filter((r) => !r.draft).map(toRelease),
     downloads,
   };
 }

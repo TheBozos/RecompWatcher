@@ -25,7 +25,7 @@ const steps = p.statusHistory;
       </li>
       {
         steps.map((m, i) => (
-          <li class:list={['node', { now: i === steps.length - 1 }]} data-tone={m.tone}>
+          <li class:list={['node', { now: i === steps.length - 1 }]} data-tone={m.tone} id={`status-${m.commit.sha.slice(0, 7)}`}>
             <span class="dot" aria-hidden="true" />
             <div>
               <time datetime={m.date}>{date(m.date)}</time>
