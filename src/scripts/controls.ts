@@ -92,6 +92,11 @@ function clickLink(selector: string) {
 function confirm() {
   const el = current();
   if (!el) return;
+  // File pickers only open from a real click or key press, never a controller.
+  if (fromPad && el.hasAttribute('data-gesture')) {
+    toast('Choosing files needs a mouse or keyboard. You can also drag files onto the page.');
+    return;
+  }
   play('confirm');
   if (el instanceof HTMLAnchorElement) open(el);
   else el.click();

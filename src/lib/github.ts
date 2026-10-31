@@ -96,6 +96,13 @@ export interface Download {
   size?: number;
 }
 
+/** A game file the port is built against, from the README's SHA-1 table. */
+export interface DiscFile {
+  file: string;
+  sha1: string;
+  release?: string;
+}
+
 export interface Project extends ProjectConfig {
   url: string;
   description: string;
@@ -107,6 +114,11 @@ export interface Project extends ProjectConfig {
   screenshots: { src: string; thumb: string; alt: string }[];
   /** Optimised square images for the save icon's faces; empty means letters. */
   faces: string[];
+  /**
+   * Files a player's copy must match. `any`: one of them (alternative
+   * releases); `all`: every one.
+   */
+  disc: { files: DiscFile[]; mode: 'any' | 'all' };
   updatedAt: string;
   stars: number;
   language?: string;
@@ -186,6 +198,30 @@ function osOf(name: string): Os {
   return 'any';
 }
 
+/**
+ * The first README table with a SHA-1 column, e.g.
+ * | Release | File | SHA-1 |  or  | File | SHA-1 |.
+ * A Release column means the rows are alternatives.
+ */
+function parseDiscTable(html: string): Project['disc'] {
+  for (const [, table] of html.matchAll(/<table>([\s\S]*?)<\/table>/g)) {
+    const heads = [...table.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => stripTags(m[1]));
+    const shaCol = heads.findIndex((h) => /sha-?1/i.test(h));
+    const fileCol = heads.findIndex((h) => /file/i.test(h));
+    if (shaCol < 0 || fileCol < 0) continue;
+    const releaseCol = heads.findIndex((h) => /release|region|version/i.test(h));
+    const files: DiscFile[] = [];
+    for (const [, row] of table.matchAll(/<tr>([\s\S]*?)<\/tr>/g)) {
+      const cells = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => stripTags(m[1]));
+      const sha1 = cells[shaCol]?.toLowerCase();
+      if (!sha1 || !/^[0-9a-f]{40}$/.test(sha1)) continue;
+      files.push({ file: cells[fileCol], sha1, release: releaseCol >= 0 ? cells[releaseCol] : undefined });
+    }
+    if (files.length) return { files, mode: releaseCol >= 0 ? 'any' : 'all' };
+  }
+  return { files: [], mode: 'all' };
+}
+
 /** "2026-10-29-black-rider.png" -> "Black rider" */
 function captionFromFile(name: string) {
   const words = name
@@ -263,6 +299,7 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     status: statusBadge ? { text: statusBadge.message, tone: toneFor(statusBadge.color) } : undefined,
     screenshots,
     faces,
+    disc: parseDiscTable(readmeHtml),
     updatedAt: repo.pushed_at,
     stars: repo.stargazers_count,
     language: repo.language ?? undefined,

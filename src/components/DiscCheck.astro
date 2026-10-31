@@ -1,0 +1,371 @@
+---
+// The disc checker panel (behaviour in scripts/disc.ts). It lists the files
+// the port is built against and checks the visitor's copy in their browser.
+import type { Project } from '../lib/github';
+import Glyph from './Glyph.astro';
+
+interface Props {
+  project: Project;
+  all: Project[];
+}
+const { project: p, all } = Astro.props;
+const base = import.meta.env.BASE_URL;
+
+const data = {
+  slug: p.slug,
+  title: p.title,
+  mode: p.disc.mode,
+  files: p.disc.files,
+  known: all.flatMap((o) => o.disc.files.map((f) => ({ ...f, slug: o.slug, title: o.title, href: `${base}p/${o.slug}/` }))),
+};
+const example = p.disc.files[0]?.file;
+---
+
+<section id="disc-check" class="disc panel" data-disc aria-labelledby="disc-title">
+  <header class="disc-head">
+    <p class="eyebrow">Disc check</p>
+    <h2 id="disc-title">Is your copy supported?</h2>
+    <p class="disc-lede">
+      The port is built against one exact version of the game. Drop your game's executable ({example}), a folder copied
+      from the disc, or the whole disc image (.iso / .bin) to check yours.
+    </p>
+  </header>
+
+  <div class="disc-body">
+    <div class="expect">
+      <p class="expect-title">{p.disc.mode === 'any' ? 'Any one of these' : 'All of these'}</p>
+      <ul>
+        {
+          p.disc.files.map((f) => (
+            <li data-expect={f.sha1}>
+              <span class="mark" aria-hidden="true" />
+              <span class="expect-file">
+                <code>{f.file}</code>
+                {f.release && <span class="release">{f.release}</span>}
+              </span>
+              <small class="hash" title={f.sha1}>
+                SHA-1 {f.sha1.slice(0, 12)}…
+              </small>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="drop" data-drop tabindex="-1">
+      <div class="spinner" aria-hidden="true">
+        <svg viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="29" class="disc-face" />
+          <circle cx="32" cy="32" r="21" class="disc-groove" />
+          <circle cx="32" cy="32" r="13" class="disc-groove" />
+          <circle cx="32" cy="32" r="5.5" class="disc-hole" />
+          <path d="M32 3a29 29 0 0 1 25.1 14.5" class="disc-shine" />
+        </svg>
+      </div>
+      <p class="drop-title">Drop files anywhere on this page</p>
+      <button type="button" class="pick" data-pick data-nav data-gesture>
+        <Glyph button="cross" /> Choose files
+      </button>
+      <input type="file" multiple hidden data-disc-input />
+      <p class="drop-status" data-status aria-live="polite"></p>
+    </div>
+  </div>
+
+  <p class="verdict" data-verdict hidden aria-live="polite"></p>
+  <ul class="results" data-results></ul>
+
+  <p class="privacy">
+    Checked on your computer: files are read by your browser and never uploaded. Only the files this port needs are read
+    from a disc image.
+  </p>
+
+  <script type="application/json" data-disc-data set:html={JSON.stringify(data)} />
+</section>
+
+<style>
+  .disc {
+    margin-top: 36px;
+    padding: 22px clamp(18px, 3vw, 32px) 18px;
+  }
+  .disc-head h2 {
+    margin: 6px 0 6px;
+    font-size: 1.5rem;
+    font-weight: 300;
+    text-shadow: var(--glow);
+  }
+  .disc-lede {
+    margin: 0;
+    max-width: 75ch;
+    color: var(--ink-dim);
+    font-weight: 300;
+  }
+
+  .disc-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+    gap: 20px;
+    margin-top: 18px;
+  }
+
+  .expect-title {
+    margin: 0 0 8px;
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .expect ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .expect li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: rgb(255 255 255 / 0.02);
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .expect li.matched {
+    border-color: color-mix(in srgb, var(--good) 55%, transparent);
+    background: color-mix(in srgb, var(--good) 9%, transparent);
+  }
+  .expect-file {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: baseline;
+  }
+  .expect code,
+  .results code {
+    font-family: var(--mono);
+  }
+  .expect code {
+    font-size: 0.92rem;
+    color: var(--ink);
+  }
+  .release {
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+  }
+  .hash {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+  }
+
+  .disc :global(.mark) {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid var(--line-strong);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .disc :global(.mark)::after {
+    content: '';
+    width: 8px;
+    height: 4px;
+    margin-top: -2px;
+    border: solid transparent;
+    border-width: 0 0 2px 2px;
+    rotate: -45deg;
+  }
+  .expect :global(.matched) > :global(.mark),
+  .results :global(.result.ok) > :global(.mark) {
+    border-color: var(--good);
+    background: color-mix(in srgb, var(--good) 20%, transparent);
+  }
+  .expect :global(.matched) > :global(.mark)::after,
+  .results :global(.result.ok) > :global(.mark)::after {
+    border-color: var(--good);
+  }
+
+  .drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 18px;
+    text-align: center;
+    border-radius: 12px;
+    border: 1.5px dashed var(--line-strong);
+    background: rgb(255 255 255 / 0.02);
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+  :global(body.dragging-files) .drop {
+    border-color: hsl(var(--h) 90% 75%);
+    background: hsl(var(--h) 90% 60% / 0.12);
+    box-shadow: 0 0 30px hsl(var(--h) 90% 60% / 0.35);
+  }
+  .drop-title {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--ink-dim);
+  }
+  .pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: inherit;
+    font-size: 0.9rem;
+    color: var(--ink);
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: rgb(255 255 255 / 0.05);
+    cursor: pointer;
+    outline: none;
+  }
+  .pick:is(:hover, :focus, :focus-visible) {
+    background: hsl(var(--h) 90% 60% / 0.2);
+    border-color: hsl(var(--h) 90% 75% / 0.6);
+    text-shadow: var(--glow);
+  }
+  .drop-status {
+    margin: 0;
+    min-height: 1.3em;
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+  }
+
+  .spinner svg {
+    width: 54px;
+    height: 54px;
+    display: block;
+  }
+  .disc-face {
+    fill: hsl(var(--h) 40% 22% / 0.6);
+    stroke: hsl(var(--h) 80% 75% / 0.6);
+  }
+  .disc-groove {
+    fill: none;
+    stroke: hsl(var(--h) 80% 80% / 0.2);
+  }
+  .disc-hole {
+    fill: var(--bg);
+    stroke: hsl(var(--h) 80% 75% / 0.6);
+  }
+  .disc-shine {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-linecap: round;
+    opacity: 0.7;
+  }
+  :global(.busy) .spinner svg {
+    animation: disc-spin 0.9s linear infinite;
+  }
+  @keyframes disc-spin {
+    to {
+      rotate: 360deg;
+    }
+  }
+
+  .verdict {
+    margin: 20px 0 0;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 1.05rem;
+    border-left: 3px solid var(--tone);
+    background: color-mix(in srgb, var(--tone) 10%, transparent);
+  }
+  .verdict[data-tone='ok'] { --tone: var(--good); }
+  .verdict[data-tone='warn'] { --tone: var(--wip); }
+  .verdict[data-tone='bad'] { --tone: var(--early); }
+
+  .results {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .results :global(.result) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgb(255 255 255 / 0.025);
+    border: 1px solid var(--line);
+  }
+  .results :global(.result:not(.ok)) > :global(.mark) {
+    border-color: var(--early);
+  }
+  .results :global(.result:not(.ok)) > :global(.mark)::after {
+    content: '!';
+    width: auto;
+    height: auto;
+    margin: 0;
+    border: 0;
+    rotate: 0deg;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--early);
+  }
+  .results :global(.result.other-version) > :global(.mark),
+  .results :global(.result.unknown) > :global(.mark) {
+    border-color: var(--wip);
+  }
+  .results :global(.result.other-version) > :global(.mark)::after,
+  .results :global(.result.unknown) > :global(.mark)::after {
+    color: var(--wip);
+  }
+  .results :global(strong) {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .results :global(.from) {
+    color: var(--ink-faint);
+  }
+  .results :global(p) {
+    margin: 2px 0 4px;
+    color: var(--ink-dim);
+    font-size: 0.9rem;
+  }
+  .results :global(code) {
+    display: block;
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    overflow-wrap: anywhere;
+  }
+  .results :global(a) {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 0.88rem;
+  }
+
+  .privacy {
+    margin: 16px 0 0;
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+  }
+
+  @media (max-width: 760px) {
+    .disc-body {
+      grid-template-columns: 1fr;
+    }
+    .expect li {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .hash {
+      grid-column: 2;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(.busy) .spinner svg {
+      animation: none;
+    }
+  }
+</style>
