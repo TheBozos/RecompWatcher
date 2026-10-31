@@ -156,6 +156,17 @@ export interface Checklist {
   items: { html: string; text: string; step: Step }[];
 }
 
+/** The milestone (and native layer) counts in one version of the README. */
+export interface ProgressPoint {
+  date: string;
+  sha: string;
+  done: number;
+  wip: number;
+  total: number;
+  nativeDone?: number;
+  nativeTotal?: number;
+}
+
 /** A point where the README's status badge changed. */
 export interface Milestone {
   date: string;
@@ -211,6 +222,8 @@ export interface Project extends ProjectConfig {
   createdAt: string;
   /** Status changes, oldest first. */
   statusHistory: Milestone[];
+  /** Milestone counts at each README version where they changed, oldest first. */
+  progressHistory: ProgressPoint[];
   /** Latest commits by the owner, newest first. */
   commits: Commit[];
   stars: number;
@@ -345,17 +358,54 @@ function statusOf(markdown: string) {
  * Walks the README's history (up to its last 100 commits) and keeps each
  * commit where the status badge changed.
  */
-async function statusHistory(owner: string, repo: string, base: string): Promise<Milestone[]> {
+/**
+ * Ticks in a Markdown checklist table whose first header matches `label`
+ * (`| Milestone | |` rows ending in ✅ / 🔧 / ⏳).
+ */
+function countTable(markdown: string, label: RegExp) {
+  const lines = markdown.split(/\r?\n/).map((l) => l.replace(/^>\s?/, '').trim());
+  const head = lines.findIndex((l) => l.startsWith('|') && label.test(l.split('|')[1] ?? ''));
+  if (head < 0) return undefined;
+  let done = 0;
+  let wip = 0;
+  let total = 0;
+  for (const line of lines.slice(head + 2)) {
+    if (!line.startsWith('|')) break;
+    const mark = line.split('|').filter((c) => c.trim()).at(-1) ?? '';
+    const step = STEP_MARKS.find(([re]) => re.test(mark))?.[1];
+    if (!step) continue;
+    total++;
+    if (step === 'done') done++;
+    if (step === 'wip') wip++;
+  }
+  return total ? { done, wip, total } : undefined;
+}
+
+/**
+ * Walks the README's history (up to its last 100 commits): the commits where
+ * the status badge changed, and the milestone counts wherever they changed.
+ */
+async function readmeHistory(owner: string, repo: string, base: string) {
   const history = await gh<CommitResponse[]>(`${base}/commits?path=README.md&per_page=100`).catch(() => []);
   const versions = await Promise.all(
-    history.map(async (c) => ({ commit: toCommit(c), status: statusOf(await rawAt(owner, repo, c.sha, 'README.md').catch(() => '')) })),
+    history.map(async (c) => {
+      const md = await rawAt(owner, repo, c.sha, 'README.md').catch(() => '');
+      return { commit: toCommit(c), status: statusOf(md), ms: countTable(md, /milestone/i), native: countTable(md, /layer/i) };
+    }),
   );
-  const milestones: Milestone[] = [];
-  for (const { commit, status } of versions.reverse()) {
-    if (!status || status.text === milestones.at(-1)?.status) continue;
-    milestones.push({ date: commit.date, status: status.text, tone: status.tone, commit });
+  const statuses: Milestone[] = [];
+  const progress: ProgressPoint[] = [];
+  for (const { commit, status, ms, native } of versions.reverse()) {
+    if (status && status.text !== statuses.at(-1)?.status) {
+      statuses.push({ date: commit.date, status: status.text, tone: status.tone, commit });
+    }
+    if (!ms) continue;
+    const point: ProgressPoint = { date: commit.date, sha: commit.sha, ...ms, nativeDone: native?.done, nativeTotal: native?.total };
+    const last = progress.at(-1);
+    const same = last && (['done', 'wip', 'total', 'nativeDone', 'nativeTotal'] as const).every((k) => last[k] === point[k]);
+    if (!same) progress.push(point);
   }
-  return milestones;
+  return { statuses, progress };
 }
 
 /** The milestone table, and a table about native layers (LotR's "Layer"), when present. */
@@ -425,7 +475,7 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     gh<string>(`${base}/readme`, 'application/vnd.github.html').catch(() => ''),
     gh<ReleaseResponse[]>(`${base}/releases?per_page=10`).catch(() => [] as ReleaseResponse[]),
     gh<ContentEntry[]>(`${base}/contents/docs/screenshots`).catch(() => [] as ContentEntry[]),
-    statusHistory(owner, cfg.repo, base),
+    readmeHistory(owner, cfg.repo, base),
     gh<CommitResponse[]>(`${base}/commits?per_page=40`).catch(() => [] as CommitResponse[]),
   ]);
   const raw = (p: string) => `https://raw.githubusercontent.com/${owner}/${cfg.repo}/${repo.default_branch}/${p}`;
@@ -484,7 +534,8 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     disc: parseDiscTable(readmeHtml),
     updatedAt: repo.pushed_at,
     createdAt: repo.created_at,
-    statusHistory: statusChanges,
+    statusHistory: statusChanges.statuses,
+    progressHistory: statusChanges.progress,
     ...pickChecklists(parseChecklists(readmeHtml)),
     // Only the owner's commits: a fork's history is mostly upstream's.
     commits: commits

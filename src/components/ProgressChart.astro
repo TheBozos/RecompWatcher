@@ -1,0 +1,288 @@
+---
+// Milestones done over time, as a step line in the project's hue over a
+// hairline of how many milestones the README listed at the time. `spark` is
+// the small inline version for the Progress table; the full one has axes, a
+// hover crosshair and a table view.
+import type { ProgressPoint } from '../lib/github';
+import { formatDate, useT, type Lang } from '../i18n';
+import { chartColor } from '../lib/color';
+
+interface Props {
+  points: ProgressPoint[];
+  hue: number;
+  /** Where the time axis starts (the project's creation). */
+  start: string;
+  lang: Lang;
+  spark?: boolean;
+}
+const { points, hue, start, lang, spark = false } = Astro.props;
+const t = useT(lang);
+
+const W = spark ? 120 : 640;
+const H = spark ? 30 : 220;
+const pad = spark ? { l: 2, r: 4, t: 4, b: 3 } : { l: 34, r: 64, t: 14, b: 30 };
+const now = new Date().toISOString();
+const t0 = Math.min(new Date(start).getTime(), new Date(points[0]?.date ?? now).getTime());
+const t1 = Math.max(new Date(now).getTime(), t0 + 864e5);
+const maxY = Math.max(1, ...points.map((p) => p.total));
+const x = (iso: string) => pad.l + ((new Date(iso).getTime() - t0) / (t1 - t0)) * (W - pad.l - pad.r);
+const y = (v: number) => H - pad.b - (v / maxY) * (H - pad.t - pad.b);
+
+// Step paths: each value holds until the next change, the last one until now.
+function steps(value: (p: ProgressPoint) => number) {
+  if (!points.length) return '';
+  let d = `M${x(points[0].date).toFixed(1)},${y(value(points[0])).toFixed(1)}`;
+  for (let i = 1; i < points.length; i++) {
+    d += ` H${x(points[i].date).toFixed(1)} V${y(value(points[i])).toFixed(1)}`;
+  }
+  return d + ` H${x(now).toFixed(1)}`;
+}
+const done = steps((p) => p.done);
+const listed = steps((p) => p.total);
+const area = done && `${done} V${y(0).toFixed(1)} H${x(points[0].date).toFixed(1)} Z`;
+const last = points.at(-1);
+const color = chartColor(hue);
+const summary = last ? t('sparkSummary', { from: points[0].done, start: formatDate(lang, points[0].date), to: last.done }) : '';
+const tips = points.map((p) => ({
+  x: x(p.date),
+  y: y(p.done),
+  text: t('chartTip', { date: formatDate(lang, p.date), done: p.done, total: p.total }) + (p.wip ? t('chartTipWip', { n: p.wip }) : ''),
+}));
+---
+
+{
+  points.length > 0 &&
+    (spark ? (
+      <svg class="spark" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={summary} style={`--c:${color}`}>
+        <title>{summary}</title>
+        <path d={listed} class="listed" />
+        <path d={area} class="area" />
+        <path d={done} class="done" />
+        {last && <circle cx={x(now)} cy={y(last.done)} r="2.6" class="end" />}
+      </svg>
+    ) : (
+      <figure class="chart" style={`--c:${color}`} data-chart data-tips={JSON.stringify(tips)} data-w={W}>
+        <figcaption>
+          <span class="title">{t('chartTitle')}</span>
+          <span class="legend">
+            <span class="key done-key">{t('chartDone')}</span>
+            <span class="key listed-key">{t('chartListed')}</span>
+          </span>
+        </figcaption>
+        <div class="plot">
+          <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={summary}>
+            <line x1={pad.l} x2={W - pad.r} y1={y(0)} y2={y(0)} class="grid" />
+            <line x1={pad.l} x2={W - pad.r} y1={y(maxY)} y2={y(maxY)} class="grid" />
+            <text x={pad.l - 8} y={y(0) + 4} class="tick" text-anchor="end">0</text>
+            <text x={pad.l - 8} y={y(maxY) + 4} class="tick" text-anchor="end">{maxY}</text>
+            <text x={pad.l} y={H - 8} class="tick">{formatDate(lang, new Date(t0).toISOString())}</text>
+            <text x={W - pad.r} y={H - 8} class="tick" text-anchor="end">{formatDate(lang, now)}</text>
+            <path d={listed} class="listed" />
+            <path d={area} class="area" />
+            <path d={done} class="done" />
+            {tips.map((p) => <circle cx={p.x} cy={p.y} r="4" class="dot" />)}
+            {last && (
+              <>
+                <text x={x(now) + 8} y={y(last.done) + 4} class="end-label">{last.done}</text>
+                <text x={x(now) + 8} y={y(last.total) + (last.total - last.done < maxY * 0.12 ? -6 : 4)} class="end-label muted">
+                  / {last.total}
+                </text>
+              </>
+            )}
+            <line class="crosshair" y1={pad.t} y2={H - pad.b} visibility="hidden" />
+          </svg>
+          <div class="tip" role="status" hidden />
+        </div>
+        <details class="as-table">
+          <summary>{t('chartAsTable')}</summary>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">{t('colDate')}</th>
+                <th scope="col">{t('chartDone')}</th>
+                <th scope="col">{t('colWipShort')}</th>
+                <th scope="col">{t('chartListed')}</th>
+                {points.some((p) => p.nativeTotal) && <th scope="col">{t('colNativeShort')}</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {points.map((p) => (
+                <tr>
+                  <td>{formatDate(lang, p.date)}</td>
+                  <td>{p.done}</td>
+                  <td>{p.wip}</td>
+                  <td>{p.total}</td>
+                  {points.some((q) => q.nativeTotal) && <td>{p.nativeTotal ? `${p.nativeDone} / ${p.nativeTotal}` : '—'}</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      </figure>
+    ))
+}
+
+<script>
+  // Crosshair + tooltip: the nearest change point to the pointer.
+  document.addEventListener('pointermove', (e) => {
+    const plot = (e.target as Element).closest?.('[data-chart] .plot');
+    for (const tip of document.querySelectorAll<HTMLElement>('[data-chart] .tip')) {
+      if (!plot || !plot.contains(tip)) {
+        tip.hidden = true;
+        tip.parentElement!.querySelector<SVGLineElement>('.crosshair')!.setAttribute('visibility', 'hidden');
+      }
+    }
+    if (!plot) return;
+    const figure = plot.closest<HTMLElement>('[data-chart]')!;
+    const tips = JSON.parse(figure.dataset.tips!) as { x: number; y: number; text: string }[];
+    const svg = plot.querySelector('svg')!;
+    const box = svg.getBoundingClientRect();
+    const px = ((e.clientX - box.left) / box.width) * Number(figure.dataset.w);
+    const near = tips.reduce((a, b) => (Math.abs(b.x - px) < Math.abs(a.x - px) ? b : a));
+    const line = svg.querySelector<SVGLineElement>('.crosshair')!;
+    line.setAttribute('x1', String(near.x));
+    line.setAttribute('x2', String(near.x));
+    line.setAttribute('visibility', 'visible');
+    const tip = plot.querySelector<HTMLElement>('.tip')!;
+    tip.textContent = near.text;
+    tip.hidden = false;
+    const left = (near.x / Number(figure.dataset.w)) * box.width;
+    tip.style.left = `${Math.min(Math.max(left, 80), box.width - 80)}px`;
+  });
+</script>
+
+<style>
+  .spark {
+    display: block;
+    width: 120px;
+    height: 30px;
+    overflow: visible;
+  }
+  path,
+  line {
+    fill: none;
+    vector-effect: non-scaling-stroke;
+  }
+  .done {
+    stroke: var(--c);
+    stroke-width: 2;
+    stroke-linejoin: round;
+  }
+  .area {
+    fill: var(--c);
+    opacity: 0.14;
+  }
+  .listed {
+    stroke: rgb(170 190 230 / 0.45);
+    stroke-width: 1;
+  }
+  .end {
+    fill: var(--c);
+    stroke: var(--bg);
+    stroke-width: 2;
+  }
+
+  .chart {
+    margin: 0;
+  }
+  figcaption {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin-bottom: 8px;
+  }
+  .title {
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+  }
+  .key::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+    background: var(--c);
+  }
+  .listed-key::before {
+    height: 1px;
+    background: rgb(170 190 230 / 0.6);
+  }
+  .plot {
+    position: relative;
+  }
+  .plot svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+  .grid {
+    stroke: var(--line);
+    stroke-width: 1;
+  }
+  .tick {
+    font-size: 11px;
+    fill: var(--ink-faint);
+  }
+  .end-label {
+    font-size: 13px;
+    fill: var(--ink);
+  }
+  .end-label.muted {
+    fill: var(--ink-faint);
+  }
+  .dot {
+    fill: var(--c);
+    stroke: var(--bg);
+    stroke-width: 2;
+  }
+  .crosshair {
+    stroke: rgb(220 230 255 / 0.5);
+    stroke-width: 1;
+  }
+  .tip {
+    position: absolute;
+    top: -6px;
+    transform: translate(-50%, -100%);
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    color: var(--ink);
+    background: rgb(4 8 24 / 0.95);
+    border: 1px solid var(--line-strong);
+    pointer-events: none;
+  }
+  .as-table {
+    margin-top: 10px;
+    font-size: 0.82rem;
+  }
+  .as-table summary {
+    cursor: pointer;
+    color: var(--ink-dim);
+  }
+  .as-table table {
+    margin-top: 8px;
+    border-collapse: collapse;
+  }
+  .as-table th,
+  .as-table td {
+    padding: 4px 14px 4px 0;
+    text-align: left;
+    font-weight: 400;
+  }
+  .as-table th {
+    color: var(--ink-faint);
+  }
+</style>

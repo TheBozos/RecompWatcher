@@ -3,6 +3,7 @@
 // native-port layers when the README has such a table.
 import type { Checklist, Project } from '../lib/github';
 import Blocks from './Blocks.astro';
+import ProgressChart from './ProgressChart.astro';
 import { useT, type Lang } from '../i18n';
 
 interface Props {
@@ -31,6 +32,11 @@ const word = { done: t('stepDone'), wip: t('stepWip'), todo: t('stepTodo') };
           </h2>
           <Blocks steps={list.items.map((i) => i.step)} size="lg" lang={lang} />
         </header>
+        {key === 'msDone' && p.progressHistory.length > 1 && (
+          <div class="over-time">
+            <ProgressChart points={p.progressHistory} hue={p.hue} start={p.createdAt} lang={lang} />
+          </div>
+        )}
         <ul>
           {list.items.map((item) => (
             <li class={item.step}>
@@ -57,6 +63,11 @@ const word = { done: t('stepDone'), wip: t('stepWip'), todo: t('stepTodo') };
     font-size: 1.5rem;
     font-weight: 300;
     text-shadow: var(--glow);
+  }
+  .over-time {
+    margin: 22px 0 6px;
+    padding: 16px 0 0;
+    border-top: 1px solid var(--line);
   }
   .wip-count {
     margin-left: 0.4em;

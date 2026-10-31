@@ -3,6 +3,7 @@
 // and last activity, sortable by any column. On phones the rows become cards.
 import Base from '../../layouts/Base.astro';
 import Blocks from '../../components/Blocks.astro';
+import ProgressChart from '../../components/ProgressChart.astro';
 import { getProjects } from '../../lib/github';
 import { count, lastActivity, ratio, statusRank } from '../../lib/stats';
 import { formatDate, langPaths, localHref, useT, type Lang } from '../../i18n';
@@ -13,6 +14,8 @@ const lang = Astro.props.lang as Lang;
 const t = useT(lang);
 const games = (await getProjects()).filter((p) => p.kind === 'game').sort((a, b) => ratio(b.milestones) - ratio(a.milestones));
 const authors = [...new Set(games.map((p) => p.author.login))];
+// Sparklines share one time axis, from the oldest port's start, so rows compare.
+const since = games.map((p) => p.createdAt).sort()[0];
 
 const columns = [
   { key: 'title', label: t('colGame'), type: 'text' },
@@ -55,6 +58,7 @@ const columns = [
                 </th>
               ))
             }
+            <th scope="col" class="trend-head">{t('colTrend')}</th>
           </tr>
         </thead>
         <tbody>
@@ -124,6 +128,13 @@ const columns = [
                     <time datetime={activity} data-ago>
                       {formatDate(lang, activity)}
                     </time>
+                  </td>
+                  <td data-label={t('colTrend')}>
+                    {p.progressHistory.length > 0 ? (
+                      <ProgressChart points={p.progressHistory} hue={p.hue} start={since} lang={lang} spark />
+                    ) : (
+                      <span class="none">—</span>
+                    )}
                   </td>
                 </tr>
               );
@@ -237,6 +248,13 @@ const columns = [
   thead button:is(:hover, :focus, :focus-visible) {
     color: var(--ink);
     background: rgb(255 255 255 / 0.06);
+  }
+  .trend-head {
+    padding: 12px 8px;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
   }
   th[aria-sort='ascending'] button,
   th[aria-sort='descending'] button {
@@ -369,6 +387,9 @@ const columns = [
     thead th {
       position: static;
       border: 0;
+    }
+    .trend-head {
+      display: none;
     }
     thead button {
       padding: 8px 10px;
