@@ -12,7 +12,11 @@ startup screen, motion, background, clock), share cards for links, an RSS feed (
 
 ## How it works
 
-- The project list lives in [`src/data/projects.ts`](src/data/projects.ts): repo, title, icon letters, colour, serial.
+- **Adding a project:** give its GitHub repo the `recomp-watcher` topic (repo page → About → ⚙ → Topics). Any
+  public repo of the people listed in `DISCOVER.owners` with that topic appears on the next build; the title, region
+  and serial come from the repo description (`Game (NTSC-U, SLUS-12345) …`) or the README's first line. Add the
+  `recomp-tool` topic for tools. To hand-tune one (colour, icon letters, faces), give it an entry in `projects.ts`.
+- The hand-written project list lives in [`src/data/projects.ts`](src/data/projects.ts): repo, title, icon letters, colour, serial.
   A project made by someone else sets `owner` to their GitHub handle; the site credits them (avatar and handle),
   and the Browser can show one person's games at a time.
 - At build time [`src/lib/github.ts`](src/lib/github.ts) fetches from the GitHub API, for each repo:

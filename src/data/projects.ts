@@ -9,6 +9,19 @@
 /** Default repo owner; set `owner` on a project made by someone else. */
 export const OWNER = 'boubou666';
 
+/**
+ * Auto-discovery: any public repo of these people carrying this topic shows
+ * up without an entry below (title, serial, region and icon are worked out
+ * from the repo). An entry below still wins, to set the title, colour or faces
+ * by hand. Topic `recomp-tool` files a repo under tools instead of games.
+ */
+export const DISCOVER = {
+  topic: 'recomp-watcher',
+  owners: [OWNER, 'Arzaroth'],
+  /** "owner/repo" names never to show. */
+  exclude: [] as string[],
+};
+
 export type Kind = 'game' | 'tool';
 
 export interface ManualDownload {

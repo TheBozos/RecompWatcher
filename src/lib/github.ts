@@ -6,7 +6,7 @@ import { getImage } from 'astro:assets';
 import { execSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { OWNER, projects, type ManualDownload, type ProjectConfig } from '../data/projects';
+import { DISCOVER, OWNER, projects, type ManualDownload, type ProjectConfig } from '../data/projects';
 
 const API = 'https://api.github.com';
 const CACHE_DIR = path.resolve('.cache/github');
@@ -518,8 +518,15 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     ...(release?.assets ?? []).map((a) => ({ label: a.name, url: a.browser_download_url, os: osOf(a.name), size: a.size })),
   ];
 
+  // A discovered repo may lack these in its description; the README's first
+  // line usually has them, e.g. "(NTSC-U, `SLUS-21027`)".
+  const serial = cfg.serial ?? tagline.match(/\b([A-Z]{4}-\d{5})\b/)?.[1];
+  const region = cfg.region ?? tagline.match(/\b(NTSC-U|NTSC-J|PAL)\b/)?.[1];
+
   return {
     ...cfg,
+    serial,
+    region,
     owner,
     author,
     url: repo.html_url,
@@ -552,7 +559,87 @@ async function load(cfg: ProjectConfig): Promise<Project> {
   };
 }
 
+// --- Auto-discovery ---------------------------------------------------------
+
+interface SearchResponse {
+  items: { name: string; description: string | null; topics?: string[]; owner: { login: string }; fork: boolean; archived: boolean }[];
+}
+
+const SKIP_WORDS = new Set(['the', 'of', 'a', 'an', 'and', 'for', 'to', 'in', 'on']);
+
+/** "Fighting for One Piece" -> "FOP", "Soulcalibur III" -> "SIII" (at most 4 letters). */
+function shortName(title: string) {
+  const words = title.split(/[\s:\-–]+/).filter((w) => w && !SKIP_WORDS.has(w.toLowerCase()));
+  const roman = words.at(-1)?.match(/^(?:[IVX]+|\d+)$/) ? words.pop() : '';
+  return (words.map((w) => w[0].toUpperCase()).join('').slice(0, 4 - (roman?.length ?? 0)) + (roman ?? '')).slice(0, 4);
+}
+
+/** A stable 0-360 hue from a name. */
+function hueOf(name: string) {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h % 360;
+}
+
+/** "Dark Cloud (NTSC-U, SCUS-97111) static recompilation…" -> title, region, serial. */
+function fromDescription(repo: string, description: string) {
+  const m = description.match(/^(.*?)\s*\(([^)]*)\)/);
+  const serial = m?.[2].match(/\b[A-Z]{4}-\d{5}\b/)?.[0];
+  const region = m?.[2].match(/\b(NTSC-U|NTSC-J|NTSC|PAL|USA|Europe|Japan)\b/)?.[0];
+  const fallback = repo.replace(/_?recomp$/i, '').replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+  // The text before the brackets is the game's title only when the brackets hold a region or serial.
+  const title = (serial || region ? m![1] : fallback).replace(/^native pc port of\s+/i, '').trim();
+  return { title, region, serial };
+}
+
+const SYSTEMS: [RegExp, string][] = [
+  [/^virtual-?boy$/, 'Virtual Boy'],
+  [/^(n64|nintendo-64)$/, 'Nintendo 64'],
+  [/^(ps1|psx|playstation-1)$/, 'PlayStation'],
+  [/^(gamecube|gc)$/, 'GameCube'],
+];
+
+/** Repos with the discovery topic that have no entry in projects.ts. */
+async function discovered(): Promise<ProjectConfig[]> {
+  const known = new Set(projects.map((p) => `${(p.owner ?? OWNER).toLowerCase()}/${p.repo.toLowerCase()}`));
+  const excluded = new Set(DISCOVER.exclude.map((n) => n.toLowerCase()));
+  const q = [`topic:${DISCOVER.topic}`, ...DISCOVER.owners.map((o) => `user:${o}`)].join(' ');
+  const found = await gh<SearchResponse>(`/search/repositories?q=${encodeURIComponent(q)}&per_page=100`).catch(
+    () => ({ items: [] }) as SearchResponse,
+  );
+  return found.items
+    .filter((r) => !r.fork && !r.archived)
+    .filter((r) => {
+      const id = `${r.owner.login}/${r.name}`.toLowerCase();
+      return !known.has(id) && !excluded.has(id);
+    })
+    .map((r) => {
+      const { title, region, serial } = fromDescription(r.name, r.description ?? '');
+      const topics = r.topics ?? [];
+      const tool = topics.includes('recomp-tool') || /^(static )?(recompiler|tooling|tools?)\b/i.test(r.description ?? '');
+      const system = SYSTEMS.find(([re]) => topics.some((t) => re.test(t)))?.[1] ?? 'PlayStation 2';
+      return {
+        slug: title.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+        repo: r.name,
+        owner: r.owner.login,
+        title,
+        short: shortName(title),
+        kind: tool ? 'tool' : 'game',
+        serial,
+        region,
+        system,
+        hue: hueOf(r.name),
+      } satisfies ProjectConfig;
+    });
+}
+
 let all: Promise<Project[]> | undefined;
 export function getProjects(): Promise<Project[]> {
-  return (all ??= Promise.all(projects.map(load)));
+  return (all ??= (async () => {
+    const extra = await discovered();
+    // Discovered games go after the listed games, discovered tools at the end.
+    const games = [...projects.filter((p) => p.kind === 'game'), ...extra.filter((p) => p.kind === 'game')];
+    const tools = [...projects.filter((p) => p.kind === 'tool'), ...extra.filter((p) => p.kind === 'tool')];
+    return Promise.all([...games, ...tools].map(load));
+  })());
 }
