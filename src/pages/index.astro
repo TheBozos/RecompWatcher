@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import SaveIcon from '../components/SaveIcon.astro';
+import Blocks from '../components/Blocks.astro';
 import { getProjects } from '../lib/github';
 
 const all = await getProjects();
@@ -27,7 +28,12 @@ const focusData = (p: (typeof all)[number]) => ({
   'data-repo-url': p.url,
   'data-last-title': p.commits[0]?.title ?? '',
   'data-last-date': p.commits[0]?.date ?? '',
+  'data-project': p.slug,
+  'data-ms': p.milestones
+    ? `${p.milestones.items.filter((i) => i.step === 'done').length} of ${p.milestones.items.length} milestones`
+    : '',
 });
+const msOf = (p: (typeof all)[number]) => p.milestones?.items.map((i) => i.step);
 
 const meta = (p: (typeof all)[number]) =>
   [p.serial, p.region, p.platforms.length ? `PC: ${p.platforms.join(' / ')}` : p.system].filter(Boolean).join('  ·  ');
@@ -61,6 +67,12 @@ const meta = (p: (typeof all)[number]) =>
       <p class="focus-meta" data-f="meta">{first && meta(first)}</p>
       <p class="status" data-f="status" data-tone={first?.status?.tone} hidden={!first?.status}>{first?.status?.text}</p>
       <p class="focus-tag" data-f="tagline">{first?.tagline}</p>
+      <div class="focus-ms" data-f="ms-row" hidden={!first?.milestones} style={first && `--h:${first.hue}`}>
+        <div class="focus-blocks" data-f="blocks">
+          {first && msOf(first) && <Blocks steps={msOf(first)!} size="lg" />}
+        </div>
+        <span data-f="ms">{first && focusData(first)['data-ms']}</span>
+      </div>
       <p class="focus-last" data-f="last" hidden={!first?.commits[0]}>
         Last update <time data-f="last-date" datetime={first?.commits[0]?.date} data-ago></time>
         <span data-f="last-title">{first?.commits[0]?.title}</span>
@@ -90,6 +102,7 @@ const meta = (p: (typeof all)[number]) =>
                     >
                       <SaveIcon short={p.short} hue={p.hue} kind={p.kind} faces={p.faces} size={p.kind === 'game' ? 72 : 56} />
                       <span class="slot-name">{p.title}</span>
+                      {msOf(p) && <Blocks steps={msOf(p)!} />}
                       {p.downloads.length > 0 && <span class="slot-badge">Download</span>}
                     </a>
                   </li>
@@ -142,6 +155,19 @@ const meta = (p: (typeof all)[number]) =>
       status.textContent = d.status ?? '';
       status.dataset.tone = d.tone ?? '';
       status.hidden = !d.status;
+    }
+    // The header's block meter is a larger copy of the selected cube's.
+    const msRow = document.querySelector<HTMLElement>('[data-f="ms-row"]');
+    const blocks = document.querySelector(`.slot[data-slug="${d.project}"] .blocks`);
+    if (msRow) {
+      msRow.hidden = !blocks;
+      msRow.style.setProperty('--h', d.hue ?? '220');
+      set('ms', d.ms ?? '');
+      if (blocks) {
+        const big = blocks.cloneNode(true) as HTMLElement;
+        big.classList.replace('sm', 'lg');
+        msRow.querySelector('[data-f="blocks"]')!.replaceChildren(big);
+      }
     }
     const last = document.querySelector<HTMLElement>('[data-f="last"]');
     if (last) {
@@ -229,6 +255,23 @@ const meta = (p: (typeof all)[number]) =>
     font-weight: 300;
   }
 
+  .focus-ms {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 12px 0 0;
+    font-size: 0.82rem;
+    color: var(--ink-dim);
+  }
+  .focus-ms[hidden] {
+    display: none;
+  }
+  .focus-blocks {
+    width: min(360px, 55vw);
+  }
+  .slot :global(.blocks) {
+    margin-top: 6px;
+  }
   .focus-last {
     margin: 10px 0 0;
     font-size: 0.82rem;

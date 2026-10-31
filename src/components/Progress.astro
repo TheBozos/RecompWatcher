@@ -8,13 +8,13 @@ interface Props {
 }
 const { project: p } = Astro.props;
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-const steps = p.milestones;
+const steps = p.statusHistory;
 ---
 
 <section id="progress" class="progress panel" aria-labelledby="progress-title">
   <div class="timeline">
     <p class="eyebrow">Progress</p>
-    <h2 id="progress-title">{steps.length > 1 ? `${steps.length} milestones` : 'Timeline'}</h2>
+    <h2 id="progress-title">Status history</h2>
     <ol>
       <li class="node start">
         <span class="dot" aria-hidden="true"></span>

@@ -140,6 +140,15 @@ export interface Commit {
   date: string;
 }
 
+export type Step = 'done' | 'wip' | 'todo';
+
+/** A README table whose rows are ticked off with ✅ / 🔧 / ⏳. */
+export interface Checklist {
+  /** The table's first header, e.g. "Milestone" or "Layer". */
+  label: string;
+  items: { html: string; text: string; step: Step }[];
+}
+
 /** A point where the README's status badge changed. */
 export interface Milestone {
   date: string;
@@ -164,10 +173,14 @@ export interface Project extends ProjectConfig {
    * releases); `all`: every one.
    */
   disc: { files: DiscFile[]; mode: 'any' | 'all' };
+  /** The README's milestone table, if it has one. */
+  milestones?: Checklist;
+  /** A checklist of native-port layers (e.g. a "Layer" table), if any. */
+  nativeLayers?: Checklist;
   updatedAt: string;
   createdAt: string;
   /** Status changes, oldest first. */
-  milestones: Milestone[];
+  statusHistory: Milestone[];
   /** Latest commits by the owner, newest first. */
   commits: Commit[];
   stars: number;
@@ -305,6 +318,39 @@ async function statusHistory(owner: string, repo: string, base: string): Promise
   return milestones;
 }
 
+/** The milestone table, and a table about native layers (LotR's "Layer"), when present. */
+function pickChecklists(lists: Checklist[]) {
+  const native = lists.find((l) => /layer|native|part/i.test(l.label));
+  const milestones = lists.find((l) => /milestone/i.test(l.label)) ?? lists.find((l) => l !== native);
+  return { milestones, nativeLayers: native };
+}
+
+const STEP_MARKS: [RegExp, Step][] = [
+  [/✅|✔️?|☑️?/u, 'done'],
+  [/🔧|🚧|🔨/u, 'wip'],
+  [/⏳|❌|⬜/u, 'todo'],
+];
+
+/** Every README table whose last column holds ✅ / 🔧 / ⏳ marks. */
+function parseChecklists(html: string): Checklist[] {
+  const lists: Checklist[] = [];
+  for (const [, table] of html.matchAll(/<table>([\s\S]*?)<\/table>/g)) {
+    const label = stripTags(table.match(/<th[^>]*>([\s\S]*?)<\/th>/)?.[1] ?? '');
+    const items: Checklist['items'] = [];
+    for (const [, row] of table.matchAll(/<tr>([\s\S]*?)<\/tr>/g)) {
+      const cells = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => m[1].trim());
+      if (cells.length < 2) continue;
+      const mark = stripTags(cells.at(-1)!);
+      const step = STEP_MARKS.find(([re]) => re.test(mark))?.[1];
+      if (step) items.push({ html: cells[0], text: stripTags(cells[0]), step });
+    }
+    // Most rows must carry a mark, so a table that merely mentions ✅ is skipped.
+    const rows = table.match(/<tr>/g)?.length ?? 0;
+    if (items.length >= 3 && items.length >= (rows - 1) * 0.6) lists.push({ label: label || 'Milestone', items });
+  }
+  return lists;
+}
+
 /** "2026-10-29-black-rider.png" -> "Black rider" */
 function captionFromFile(name: string) {
   const words = name
@@ -326,7 +372,7 @@ async function optimise(src: string, width: number, height: number) {
 async function load(cfg: ProjectConfig): Promise<Project> {
   const owner = cfg.owner ?? OWNER;
   const base = `/repos/${owner}/${cfg.repo}`;
-  const [repo, readme, releases, shotDir, milestones, commits] = await Promise.all([
+  const [repo, readme, releases, shotDir, statusChanges, commits] = await Promise.all([
     gh<RepoResponse>(base),
     gh<string>(`${base}/readme`, 'application/vnd.github.html').catch(() => ''),
     gh<ReleaseResponse[]>(`${base}/releases?per_page=10`).catch(() => [] as ReleaseResponse[]),
@@ -387,7 +433,8 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     disc: parseDiscTable(readmeHtml),
     updatedAt: repo.pushed_at,
     createdAt: repo.created_at,
-    milestones,
+    statusHistory: statusChanges,
+    ...pickChecklists(parseChecklists(readmeHtml)),
     // Only the owner's commits: a fork's history is mostly upstream's.
     commits: commits
       .filter((c) => c.author?.login === OWNER)

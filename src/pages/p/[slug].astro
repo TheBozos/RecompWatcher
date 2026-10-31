@@ -5,6 +5,7 @@ import SaveIcon from '../../components/SaveIcon.astro';
 import Glyph from '../../components/Glyph.astro';
 import DiscCheck from '../../components/DiscCheck.astro';
 import Progress from '../../components/Progress.astro';
+import Milestones from '../../components/Milestones.astro';
 import { getProjects, type Project, type Os } from '../../lib/github';
 import '../../styles/readme.css';
 
@@ -107,11 +108,13 @@ const specs = [
           )
         }
         {
-          (p.milestones.length > 0 || p.commits.length > 0) && (
-            <a class="action" href="#progress" data-nav>
+          (p.milestones || p.statusHistory.length > 0 || p.commits.length > 0) && (
+            <a class="action" href={p.milestones || p.nativeLayers ? '#milestones' : '#progress'} data-nav>
               <span class="action-title">See the progress</span>
               <span class="action-sub">
-                {p.milestones.length > 1 ? `${p.milestones.length} milestones, latest work` : 'Latest work'}
+                {p.milestones
+                  ? `${p.milestones.items.filter((i) => i.step === 'done').length} of ${p.milestones.items.length} milestones done`
+                  : 'Status history, latest work'}
               </span>
             </a>
           )
@@ -155,7 +158,9 @@ const specs = [
 
     {p.disc.files.length > 0 && <DiscCheck project={p} all={all} />}
 
-    {(p.milestones.length > 0 || p.commits.length > 0) && <Progress project={p} />}
+    {(p.milestones || p.nativeLayers) && <Milestones project={p} />}
+
+    {(p.statusHistory.length > 0 || p.commits.length > 0) && <Progress project={p} />}
 
     {
       p.screenshots.length > 0 && (
