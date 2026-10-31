@@ -85,6 +85,7 @@ const pageAnim = { forwards: zoom, backwards: zoom };
       </a>
       <nav class="topnav" aria-label="Recomp Watcher">
         <a href={localHref(lang)} aria-current={path === '' ? 'page' : undefined}>{t('navBrowser')}</a>
+        <a href={localHref(lang, 'progress/')} aria-current={path === 'progress/' ? 'page' : undefined}>{t('navProgress')}</a>
         <a href={localHref(lang, 'system/')} aria-current={path === 'system/' ? 'page' : undefined}>{t('navSystem')}</a>
         <a href={localHref(otherLang, path)} hreflang={otherLang} lang={otherLang} data-lang-switch={otherLang} class="lang">
           {otherLang.toUpperCase()}

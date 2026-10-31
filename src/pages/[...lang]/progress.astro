@@ -1,0 +1,413 @@
+---
+// Every port side by side: status, milestones, native port, disc, platforms
+// and last activity, sortable by any column. On phones the rows become cards.
+import Base from '../../layouts/Base.astro';
+import Blocks from '../../components/Blocks.astro';
+import { getProjects } from '../../lib/github';
+import { count, lastActivity, ratio, statusRank } from '../../lib/stats';
+import { formatDate, langPaths, localHref, useT, type Lang } from '../../i18n';
+
+export const getStaticPaths = langPaths;
+
+const lang = Astro.props.lang as Lang;
+const t = useT(lang);
+const games = (await getProjects()).filter((p) => p.kind === 'game').sort((a, b) => ratio(b.milestones) - ratio(a.milestones));
+const authors = [...new Set(games.map((p) => p.author.login))];
+
+const columns = [
+  { key: 'title', label: t('colGame'), type: 'text' },
+  { key: 'status', label: t('colStatus'), type: 'number' },
+  { key: 'milestones', label: t('colMilestones'), type: 'number' },
+  { key: 'native', label: t('colNative'), type: 'number' },
+  { key: 'disc', label: t('colDisc'), type: 'text' },
+  { key: 'platforms', label: t('colPlatforms'), type: 'number' },
+  { key: 'activity', label: t('colActivity'), type: 'text' },
+] as const;
+---
+
+<Base
+  lang={lang}
+  path="progress/"
+  title={`${t('progressTitle')} · Recomp Watcher`}
+  hints={[
+    { button: 'cross', label: t('hintSelect') },
+    { button: 'circle', label: t('hintBack') },
+  ]}
+>
+  <div class="progress-page">
+    <nav class="crumbs">
+      <a href={localHref(lang)} data-back>{t('navBrowser')}</a>
+    </nav>
+    <h1>{t('progressTitle')}</h1>
+    <p class="lede">{t('progressLede', { games: games.length, authors: authors.join(' & ') })}</p>
+
+    <div class="table-wrap panel">
+      <table data-sortable>
+        <thead>
+          <tr>
+            {
+              columns.map((c) => (
+                <th scope="col" aria-sort={c.key === 'milestones' ? 'descending' : 'none'} data-col={c.key}>
+                  <button type="button" data-nav data-sort={c.key} data-type={c.type} aria-label={t('sortBy', { col: c.label })}>
+                    {c.label}
+                    <span class="arrow" aria-hidden="true" />
+                  </button>
+                </th>
+              ))
+            }
+          </tr>
+        </thead>
+        <tbody>
+          {
+            games.map((p) => {
+              const ms = p.milestones;
+              const nl = p.nativeLayers;
+              const activity = lastActivity(p);
+              return (
+                <tr
+                  style={`--h:${p.hue}`}
+                  data-title={p.title.toLowerCase()}
+                  data-status={statusRank(p)}
+                  data-milestones={ratio(ms)}
+                  data-native={ratio(nl)}
+                  data-disc={p.serial ?? ''}
+                  data-platforms={p.platforms.length}
+                  data-activity={activity}
+                >
+                  <th scope="row" data-label={t('colGame')}>
+                    <a href={localHref(lang, `p/${p.slug}/`)} data-nav class="game">
+                      {p.cover && <img src={p.faces[0]} alt="" width="44" height="44" loading="lazy" />}
+                      <span>
+                        <span class="name">{p.title}</span>
+                        <span class="author">
+                          <img src={p.author.avatar} alt="" width="16" height="16" />
+                          {p.author.login}
+                        </span>
+                      </span>
+                    </a>
+                  </th>
+                  <td data-label={t('colStatus')}>
+                    {p.status ? (
+                      <span class="status" data-tone={p.status.tone}>
+                        {p.status.text}
+                      </span>
+                    ) : (
+                      <span class="none">—</span>
+                    )}
+                  </td>
+                  <td data-label={t('colMilestones')}>
+                    {ms ? (
+                      <span class="meter">
+                        <Blocks steps={ms.items.map((i) => i.step)} lang={lang} />
+                        <span class="figure">{t('ofTotal', { done: count(ms, 'done'), total: ms.items.length })}</span>
+                      </span>
+                    ) : (
+                      <span class="none">{t('notTracked')}</span>
+                    )}
+                  </td>
+                  <td data-label={t('colNative')}>
+                    {nl ? (
+                      <span class="meter">
+                        <Blocks steps={nl.items.map((i) => i.step)} lang={lang} />
+                        <span class="figure">{t('ofTotal', { done: count(nl, 'done'), total: nl.items.length })}</span>
+                      </span>
+                    ) : (
+                      <span class="none">{t('notTracked')}</span>
+                    )}
+                  </td>
+                  <td data-label={t('colDisc')}>
+                    <span class="disc">{p.serial}</span>
+                    <span class="sub">{p.region}</span>
+                  </td>
+                  <td data-label={t('colPlatforms')}>{p.platforms.join(' · ') || '—'}</td>
+                  <td data-label={t('colActivity')}>
+                    <time datetime={activity} data-ago>
+                      {formatDate(lang, activity)}
+                    </time>
+                  </td>
+                </tr>
+              );
+            })
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</Base>
+
+<script>
+  // Column sorting. Numbers sort high-first, text A-Z first; selecting the
+  // same column again reverses it. Remembered for the visit.
+  type Dir = 'ascending' | 'descending';
+  const KEY = 'rw-progress-sort';
+
+  function sortBy(key: string, dir: Dir) {
+    const table = document.querySelector<HTMLTableElement>('[data-sortable]');
+    if (!table) return;
+    const type = table.querySelector<HTMLElement>(`[data-sort="${key}"]`)?.dataset.type;
+    const rows = [...table.tBodies[0].rows];
+    const value = (r: HTMLTableRowElement) => r.dataset[key] ?? '';
+    rows.sort((a, b) => {
+      const cmp = type === 'number' ? Number(value(a)) - Number(value(b)) : value(a).localeCompare(value(b));
+      return dir === 'ascending' ? cmp : -cmp;
+    });
+    table.tBodies[0].append(...rows);
+    for (const th of table.querySelectorAll<HTMLElement>('thead th')) {
+      th.setAttribute('aria-sort', th.dataset.col === key ? dir : 'none');
+    }
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify({ key, dir }));
+    } catch {}
+  }
+
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-sort]');
+    if (!btn) return;
+    const key = btn.dataset.sort!;
+    const th = btn.closest('th')!;
+    const current = th.getAttribute('aria-sort');
+    const natural: Dir = btn.dataset.type === 'number' || key === 'activity' ? 'descending' : 'ascending';
+    const dir: Dir = current === natural ? (natural === 'ascending' ? 'descending' : 'ascending') : natural;
+    sortBy(key, dir);
+  });
+
+  document.addEventListener('astro:page-load', () => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(KEY) ?? 'null');
+      if (saved) sortBy(saved.key, saved.dir);
+    } catch {}
+  });
+</script>
+
+<style>
+  .progress-page {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 18px var(--gutter) 40px;
+  }
+  .crumbs a {
+    font-size: 0.85rem;
+    color: var(--ink-dim);
+    text-decoration: none;
+  }
+  h1 {
+    margin: 14px 0 6px;
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    font-weight: 300;
+    text-shadow: var(--glow);
+  }
+  .lede {
+    margin: 0 0 22px;
+    color: var(--ink-dim);
+  }
+
+  .table-wrap {
+    padding: 6px 10px;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    text-align: left;
+    font-weight: 400;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--line);
+  }
+  thead button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 8px;
+    font: inherit;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    background: none;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    outline: none;
+  }
+  thead button:is(:hover, :focus, :focus-visible) {
+    color: var(--ink);
+    background: rgb(255 255 255 / 0.06);
+  }
+  th[aria-sort='ascending'] button,
+  th[aria-sort='descending'] button {
+    color: var(--ink);
+  }
+  .arrow::after {
+    content: '';
+    display: inline-block;
+    width: 0.8em;
+  }
+  th[aria-sort='ascending'] .arrow::after {
+    content: '▲';
+    font-size: 0.6rem;
+  }
+  th[aria-sort='descending'] .arrow::after {
+    content: '▼';
+    font-size: 0.6rem;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--line);
+  }
+  tbody tr:last-child {
+    border-bottom: 0;
+  }
+  tbody tr:hover,
+  tbody tr:focus-within {
+    background: linear-gradient(90deg, hsl(var(--h) 90% 60% / 0.12), transparent 70%);
+  }
+  tbody th,
+  td {
+    padding: 12px 8px;
+    vertical-align: middle;
+    text-align: left;
+    font-weight: 400;
+  }
+  .game {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--ink);
+    text-decoration: none;
+    border-radius: 8px;
+    outline: none;
+  }
+  .game > img {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid hsl(var(--h) 90% 72% / 0.7);
+    flex: none;
+  }
+  .game:is(:hover, :focus, :focus-visible) .name {
+    text-shadow: var(--glow);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .name {
+    display: block;
+    font-size: 0.95rem;
+  }
+  tbody th {
+    min-width: 230px;
+  }
+  td[data-label] {
+    min-width: 96px;
+  }
+  .author {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+  }
+  .author img {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+  }
+  .meter {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 110px;
+  }
+  .figure,
+  .sub,
+  time {
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+  .disc {
+    display: block;
+    white-space: nowrap;
+  }
+  .none {
+    color: var(--ink-faint);
+  }
+  .status {
+    font-size: 0.85rem;
+  }
+
+  /* Phones: one card per port, each value under its own label. */
+  @media (max-width: 900px) {
+    .table-wrap {
+      padding: 0;
+      background: none;
+      border: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      overflow: visible;
+    }
+    table,
+    tbody,
+    tr,
+    tbody th,
+    td {
+      display: block;
+    }
+    thead tr {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    thead th {
+      position: static;
+      border: 0;
+    }
+    thead button {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      letter-spacing: 0.08em;
+    }
+    tbody tr {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 14px;
+      margin-bottom: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--glass);
+    }
+    tbody tr:last-child {
+      border-bottom: 1px solid var(--line);
+    }
+    tbody th {
+      grid-column: 1 / -1;
+      padding: 0;
+      min-width: 0;
+    }
+    td {
+      padding: 0;
+    }
+    td[data-label] {
+      min-width: 0;
+    }
+    td::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.66rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+  }
+</style>

@@ -5,6 +5,7 @@ import Blocks from '../../components/Blocks.astro';
 import AuthorTag from '../../components/AuthorTag.astro';
 import { getProjects } from '../../lib/github';
 import { BADGE_DAYS, eventsOf } from '../../lib/events';
+import { lastActivity, ratio, statusRank } from '../../lib/stats';
 import { langPaths, localHref, useT, type Lang } from '../../i18n';
 
 export const getStaticPaths = langPaths;
@@ -21,6 +22,16 @@ const authors = [...new Map(games.map((p) => [p.author.login, p.author])).values
   ...a,
   count: games.filter((p) => p.author.login === a.login).length,
 }));
+
+// Platforms the games run on, for the platform filter.
+const platforms = [...new Set(games.flatMap((p) => p.platforms))].sort();
+const sorts: [string, string][] = [
+  ['default', t('sortDefault')],
+  ['progress', t('sortProgress')],
+  ['activity', t('sortActivity')],
+  ['name', t('sortName')],
+  ['status', t('sortStatus')],
+];
 
 // Latest commits across every project, for the activity feed; two per
 // project at most so one busy repo does not fill it.
@@ -128,8 +139,24 @@ const meta = (p: (typeof all)[number]) =>
             <section class="group">
               <div class="group-head">
                 <h2 class="eyebrow">{group.label}</h2>
+                {group.list === games && (
+                  <button type="button" class="sort" data-nav data-adjust data-sort-cycle data-options={JSON.stringify(sorts)}>
+                    <span class="sort-label">{t('sortLabel')}</span>
+                    <span class="sort-arrow" data-step="-1" aria-hidden="true">‹</span>
+                    <span class="sort-value" data-sort-value aria-live="polite">{sorts[0][1]}</span>
+                    <span class="sort-arrow" data-step="1" aria-hidden="true">›</span>
+                  </button>
+                )}
+                {group.list === games && platforms.length > 1 && (
+                  <div class="chips" role="group" aria-label={t('platformFilter')}>
+                    <button type="button" data-nav data-platform-filter="" aria-pressed="true">{t('platformAll')}</button>
+                    {platforms.map((pl) => (
+                      <button type="button" data-nav data-platform-filter={pl} aria-pressed="false">{pl}</button>
+                    ))}
+                  </div>
+                )}
                 {group.list === games && authors.length > 1 && (
-                  <div class="authors" role="group" aria-label={t('showGamesBy')}>
+                  <div class="authors chips" role="group" aria-label={t('showGamesBy')}>
                     <button type="button" data-nav data-author-filter="" aria-pressed="true">
                       {t('everyone')} <span class="count">{games.length}</span>
                     </button>
@@ -142,8 +169,9 @@ const meta = (p: (typeof all)[number]) =>
                   </div>
                 )}
               </div>
+              {group.list === games && <p class="no-match" data-no-match hidden>{t('noMatch')}</p>}
               <ul class:list={['slots', group.list[0].kind]}>
-                {group.list.map((p) => (
+                {group.list.map((p, i) => (
                   <li>
                     <a
                       class="slot"
@@ -152,6 +180,12 @@ const meta = (p: (typeof all)[number]) =>
                       data-nav
                       data-slug={p.slug}
                       {...focusData(p)}
+                      data-order={i}
+                      data-sort-progress={ratio(p.milestones)}
+                      data-sort-activity={lastActivity(p)}
+                      data-sort-name={p.title.toLowerCase()}
+                      data-sort-status={statusRank(p)}
+                      data-platforms={p.platforms.join('|')}
                       data-autofocus={p === first ? '' : undefined}
                     >
                       <SaveIcon short={p.short} hue={p.hue} kind={p.kind} faces={p.faces} size={p.kind === 'game' ? 72 : 56} />
@@ -256,21 +290,83 @@ const meta = (p: (typeof all)[number]) =>
   }
   document.addEventListener('rw:selected', (e) => showFocus((e as CustomEvent<HTMLElement>).detail));
 
-  // "Show games by": hides the other authors' games (remembered for the visit).
-  function filterBy(login: string) {
+  // Sort and filters for the games: who made them, what they run on, and the
+  // order. They combine, and are remembered for the visit.
+  interface View {
+    author: string;
+    platform: string;
+    sort: string;
+  }
+  const VIEW_KEY = 'rw-view';
+  let view: View = { author: '', platform: '', sort: 'default' };
+
+  function applyView() {
     for (const btn of document.querySelectorAll<HTMLElement>('[data-author-filter]')) {
-      btn.setAttribute('aria-pressed', String(btn.dataset.authorFilter === login));
+      btn.setAttribute('aria-pressed', String(btn.dataset.authorFilter === view.author));
     }
-    for (const slot of document.querySelectorAll<HTMLElement>('.slots.game .slot')) {
-      slot.parentElement!.hidden = !!login && slot.dataset.author !== login;
+    for (const btn of document.querySelectorAll<HTMLElement>('[data-platform-filter]')) {
+      btn.setAttribute('aria-pressed', String(btn.dataset.platformFilter === view.platform));
+    }
+    const list = document.querySelector<HTMLElement>('.slots.game');
+    if (!list) return;
+    const items = [...list.children] as HTMLElement[];
+    let shown = 0;
+    for (const li of items) {
+      const slot = li.querySelector<HTMLElement>('.slot')!;
+      const ok =
+        (!view.author || slot.dataset.author === view.author) &&
+        (!view.platform || (slot.dataset.platforms ?? '').split('|').includes(view.platform));
+      li.hidden = !ok;
+      if (ok) shown++;
+    }
+    const noMatch = document.querySelector<HTMLElement>('[data-no-match]');
+    if (noMatch) noMatch.hidden = shown > 0;
+
+    // Numbers high-first (progress, status), dates newest-first, names A-Z.
+    const d = (li: HTMLElement) => li.querySelector<HTMLElement>('.slot')!.dataset;
+    const by: Record<string, (a: HTMLElement, b: HTMLElement) => number> = {
+      default: (a, b) => Number(d(a).order) - Number(d(b).order),
+      progress: (a, b) => Number(d(b).sortProgress) - Number(d(a).sortProgress),
+      status: (a, b) => Number(d(b).sortStatus) - Number(d(a).sortStatus) || Number(d(b).sortProgress) - Number(d(a).sortProgress),
+      activity: (a, b) => (d(b).sortActivity ?? '').localeCompare(d(a).sortActivity ?? ''),
+      name: (a, b) => (d(a).sortName ?? '').localeCompare(d(b).sortName ?? ''),
+    };
+    list.append(...items.sort(by[view.sort] ?? by.default));
+
+    const sortBtn = document.querySelector<HTMLElement>('[data-sort-cycle]');
+    if (sortBtn) {
+      const opts = JSON.parse(sortBtn.dataset.options!) as [string, string][];
+      sortBtn.querySelector('[data-sort-value]')!.textContent = (opts.find(([k]) => k === view.sort) ?? opts[0])[1];
     }
     try {
-      sessionStorage.setItem('rw-author', login);
+      sessionStorage.setItem(VIEW_KEY, JSON.stringify(view));
     } catch {}
   }
+
+  function stepSort(by: number) {
+    const btn = document.querySelector<HTMLElement>('[data-sort-cycle]');
+    if (!btn) return;
+    const keys = (JSON.parse(btn.dataset.options!) as [string, string][]).map(([k]) => k);
+    const i = keys.indexOf(view.sort);
+    view = { ...view, sort: keys[(i + by + keys.length) % keys.length] };
+    applyView();
+  }
+
   document.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-author-filter]');
-    if (btn) filterBy(btn.dataset.authorFilter ?? '');
+    const target = e.target as HTMLElement;
+    const author = target.closest<HTMLElement>('[data-author-filter]');
+    const platform = target.closest<HTMLElement>('[data-platform-filter]');
+    const sort = target.closest<HTMLElement>('[data-sort-cycle]');
+    if (author) view = { ...view, author: author.dataset.authorFilter ?? '' };
+    else if (platform) view = { ...view, platform: platform.dataset.platformFilter ?? '' };
+    else if (sort) {
+      stepSort(Number(target.closest<HTMLElement>('[data-step]')?.dataset.step ?? 1));
+      return;
+    } else return;
+    applyView();
+  });
+  document.addEventListener('rw:adjust', (e) => {
+    if ((e.target as HTMLElement).closest('[data-sort-cycle]')) stepSort((e as CustomEvent<number>).detail);
   });
 
   // Badges for recent events, shown until their date passes.
@@ -282,11 +378,14 @@ const meta = (p: (typeof all)[number]) =>
   });
 
   document.addEventListener('astro:page-load', () => {
-    let saved = '';
+    if (!document.querySelector('.slots.game')) return;
     try {
-      saved = sessionStorage.getItem('rw-author') ?? '';
+      view = { ...view, ...JSON.parse(sessionStorage.getItem(VIEW_KEY) ?? '{}') };
     } catch {}
-    if (document.querySelector(`[data-author-filter="${CSS.escape(saved)}"]`)) filterBy(saved);
+    // Drop a saved filter whose button no longer exists (an author or platform gone since).
+    if (!document.querySelector(`[data-author-filter="${CSS.escape(view.author)}"]`)) view.author = '';
+    if (!document.querySelector(`[data-platform-filter="${CSS.escape(view.platform)}"]`)) view.platform = '';
+    applyView();
   });
 
   document.addEventListener('astro:page-load', () => {
@@ -477,13 +576,62 @@ const meta = (p: (typeof all)[number]) =>
     border-bottom: 0;
     margin-bottom: 0;
   }
-  .authors {
+  .group-head h2 {
+    margin-right: auto;
+  }
+  .chips {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     padding-bottom: 8px;
   }
-  .authors button {
+  .sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+    padding: 3px 6px 3px 12px;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgb(255 255 255 / 0.03);
+    cursor: pointer;
+    outline: none;
+  }
+  .sort:is(:hover, :focus, :focus-visible) {
+    color: var(--ink);
+    border-color: var(--line-strong);
+  }
+  .sort-label {
+    color: var(--ink-faint);
+    margin-right: 4px;
+  }
+  .sort-value {
+    min-width: 7.5em;
+    text-align: center;
+    color: var(--ink);
+  }
+  .sort-arrow {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 1rem;
+  }
+  .sort-arrow:hover {
+    background: rgb(255 255 255 / 0.08);
+  }
+  .no-match {
+    margin: 18px 0;
+    color: var(--ink-dim);
+  }
+  .no-match[hidden] {
+    display: none;
+  }
+  .chips button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -497,19 +645,19 @@ const meta = (p: (typeof all)[number]) =>
     cursor: pointer;
     outline: none;
   }
-  .authors button:first-child {
+  .chips button:not(:has(img)) {
     padding-left: 10px;
   }
-  .authors button img {
+  .chips button img {
     width: 18px;
     height: 18px;
     border-radius: 50%;
   }
-  .authors button:is(:hover, :focus, :focus-visible) {
+  .chips button:is(:hover, :focus, :focus-visible) {
     color: var(--ink);
     border-color: var(--line-strong);
   }
-  .authors button[aria-pressed='true'] {
+  .chips button[aria-pressed='true'] {
     color: var(--ink);
     border-color: rgb(160 190 255 / 0.6);
     background: rgb(110 150 255 / 0.18);
