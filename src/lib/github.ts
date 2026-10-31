@@ -79,6 +79,13 @@ async function rawAt(owner: string, repo: string, sha: string, file: string): Pr
   return text;
 }
 
+interface UserResponse {
+  login: string;
+  name: string | null;
+  html_url: string;
+  avatar_url: string;
+}
+
 interface CommitResponse {
   sha: string;
   html_url: string;
@@ -157,7 +164,18 @@ export interface Milestone {
   commit: Commit;
 }
 
+/** Who makes a project: its repo's owner on GitHub. */
+export interface Author {
+  login: string;
+  name?: string;
+  url: string;
+  /** Small optimised avatar. */
+  avatar: string;
+}
+
 export interface Project extends ProjectConfig {
+  owner: string;
+  author: Author;
   url: string;
   description: string;
   tagline: string;
@@ -371,6 +389,13 @@ async function optimise(src: string, width: number, height: number) {
 
 async function load(cfg: ProjectConfig): Promise<Project> {
   const owner = cfg.owner ?? OWNER;
+  const user = await gh<UserResponse>(`/users/${owner}`);
+  const author: Author = {
+    login: user.login,
+    name: user.name ?? undefined,
+    url: user.html_url,
+    avatar: await optimise(user.avatar_url, 64, 64),
+  };
   const base = `/repos/${owner}/${cfg.repo}`;
   const [repo, readme, releases, shotDir, statusChanges, commits] = await Promise.all([
     gh<RepoResponse>(base),
@@ -422,6 +447,8 @@ async function load(cfg: ProjectConfig): Promise<Project> {
 
   return {
     ...cfg,
+    owner,
+    author,
     url: repo.html_url,
     description: repo.description ?? '',
     tagline,
@@ -437,7 +464,7 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     ...pickChecklists(parseChecklists(readmeHtml)),
     // Only the owner's commits: a fork's history is mostly upstream's.
     commits: commits
-      .filter((c) => c.author?.login === OWNER)
+      .filter((c) => c.author?.login?.toLowerCase() === owner.toLowerCase())
       .slice(0, 8)
       .map(toCommit),
     stars: repo.stargazers_count,

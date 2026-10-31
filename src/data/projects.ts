@@ -6,6 +6,7 @@
 // To add downloads before cutting a GitHub release, fill `downloads` by hand.
 // Once a repo has a release, its assets show up automatically.
 
+/** Default repo owner; set `owner` on a project made by someone else. */
 export const OWNER = 'boubou666';
 
 export type Kind = 'game' | 'tool';
@@ -137,6 +138,61 @@ export const projects: ProjectConfig[] = [
     region: 'PAL',
     system: 'PlayStation 2',
     hue: 352,
+  },
+  // Arzaroth's ports.
+  {
+    slug: 'soulcalibur-3',
+    repo: 'SoulCaliburIII_Recomp',
+    owner: 'Arzaroth',
+    title: 'Soulcalibur III',
+    short: 'SC3',
+    kind: 'game',
+    serial: 'SLUS-21216',
+    region: 'NTSC-U',
+    system: 'PlayStation 2',
+    hue: 300,
+    faces: [
+      'docs/screenshots/title_screen.jpg',
+      'docs/screenshots/fight.jpg',
+      'docs/screenshots/versus.jpg',
+      'docs/screenshots/chronicles_field.jpg',
+    ],
+  },
+  {
+    slug: 'fighting-for-one-piece',
+    repo: 'FightingForOnePiece_Recomp',
+    owner: 'Arzaroth',
+    title: 'Fighting for One Piece',
+    short: 'FfOP',
+    kind: 'game',
+    serial: 'SLPS-25545',
+    region: 'NTSC-J',
+    system: 'PlayStation 2',
+    hue: 28,
+    faces: [
+      'docs/screenshots/title_screen.jpg',
+      'docs/screenshots/fight.jpg',
+      'docs/screenshots/character_select.jpg',
+      'docs/screenshots/special_move.jpg',
+    ],
+  },
+  {
+    slug: 'smash-court-tennis-2',
+    repo: 'SmashCourtTennisProTournament2_Recomp',
+    owner: 'Arzaroth',
+    title: 'Smash Court Tennis Pro Tournament 2',
+    short: 'SCT2',
+    kind: 'game',
+    serial: 'SLUS-20933',
+    region: 'NTSC-U',
+    system: 'PlayStation 2',
+    hue: 95,
+    faces: [
+      'docs/screenshots/title_screen.jpg',
+      'docs/screenshots/match_play.jpg',
+      'docs/screenshots/player_select.jpg',
+      'docs/screenshots/final_set.jpg',
+    ],
   },
   {
     slug: 'ps2recomp',

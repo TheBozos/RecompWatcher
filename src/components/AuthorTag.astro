@@ -1,0 +1,50 @@
+---
+// "by <avatar> login": who makes a project.
+import type { Author } from '../lib/github';
+
+interface Props {
+  author: Author;
+  /** Link to the author's GitHub profile. */
+  link?: boolean;
+  prefix?: string;
+}
+const { author, link = false, prefix = 'by' } = Astro.props;
+const Tag = link ? 'a' : 'span';
+---
+
+<Tag
+  class="author"
+  {...link ? { href: author.url, target: '_blank', rel: 'noopener' } : {}}
+  title={`${author.login} on GitHub`}
+>
+  {prefix && <span class="by">{prefix}</span>}
+  <img src={author.avatar} alt="" width="20" height="20" loading="lazy" decoding="async" />
+  <span class="login">{author.login}</span>
+</Tag>
+
+<style>
+  .author {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-dim);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  a.author:hover .login {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+  .by {
+    color: var(--ink-faint);
+  }
+  img {
+    width: 1.35em;
+    height: 1.35em;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+  }
+  .login {
+    color: var(--ink);
+  }
+</style>

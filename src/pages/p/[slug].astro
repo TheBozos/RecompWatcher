@@ -6,6 +6,7 @@ import Glyph from '../../components/Glyph.astro';
 import DiscCheck from '../../components/DiscCheck.astro';
 import Progress from '../../components/Progress.astro';
 import Milestones from '../../components/Milestones.astro';
+import AuthorTag from '../../components/AuthorTag.astro';
 import { getProjects, type Project, type Os } from '../../lib/github';
 import '../../styles/readme.css';
 
@@ -67,6 +68,7 @@ const specs = [
       <div class="hero-info">
         <p class="eyebrow">{p.kind === 'game' ? 'Native PC port' : 'Tool'} · {p.system}</p>
         <h1>{p.title}</h1>
+        <p class="byline"><AuthorTag author={p.author} link prefix={p.kind === 'game' ? 'Recompiled by' : 'by'} /></p>
         {p.status && <p class="status" data-tone={p.status.tone}>{p.status.text}</p>}
         <p class="tagline">{p.tagline || p.description}</p>
         <dl class="specs">
@@ -121,7 +123,7 @@ const specs = [
         }
         <a class="action" href={p.url} target="_blank" rel="noopener" data-nav data-repo>
           <span class="action-title">Open the repository ↗</span>
-          <span class="action-sub">github.com/{p.owner ?? 'boubou666'}/{p.repo}</span>
+          <span class="action-sub">github.com/{p.owner}/{p.repo}</span>
         </a>
         {
           p.downloads.length > 0 ? (
@@ -242,6 +244,10 @@ const specs = [
     font-weight: 300;
     line-height: 1.1;
     text-shadow: var(--glow);
+  }
+  .byline {
+    margin: -2px 0 12px;
+    font-size: 0.92rem;
   }
   .tagline {
     color: var(--ink-dim);

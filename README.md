@@ -1,7 +1,7 @@
 # Recomp Watcher
 
-A PS2-style showcase for my static recompilation projects: each game port and tool gets a page with
-its README, a link to its repository and, once a release is published, its downloads.
+A PS2-style showcase for static recompilation projects, mine and friends': each game port and tool gets a
+page with its README, who makes it, a link to its repository and, once a release is published, its downloads.
 
 Built with [Astro](https://astro.build) (static pages, view transitions) and [three.js](https://threejs.org)
 (the boot towers in the background). Arrow keys or a gamepad move around the menu; ✕/Enter opens,
@@ -10,6 +10,8 @@ Built with [Astro](https://astro.build) (static pages, view transitions) and [th
 ## How it works
 
 - The project list lives in [`src/data/projects.ts`](src/data/projects.ts): repo, title, icon letters, colour, serial.
+  A project made by someone else sets `owner` to their GitHub handle; the site credits them (avatar and handle),
+  and the Browser can show one person's games at a time.
 - At build time [`src/lib/github.ts`](src/lib/github.ts) fetches from the GitHub API, for each repo:
   - the README as GitHub renders it (relative links and images are pointed back at the repo),
   - the `platform` and `status` badges and any screenshots it contains,
