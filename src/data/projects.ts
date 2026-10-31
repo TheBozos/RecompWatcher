@@ -1,6 +1,8 @@
 // The projects shown on the site. Everything else (README, status, platforms,
 // screenshots, downloads) is pulled from GitHub at build time.
 //
+// Screenshots come from the README and from docs/screenshots/ in each repo.
+//
 // To add downloads before cutting a GitHub release, fill `downloads` by hand.
 // Once a repo has a release, its assets show up automatically.
 
@@ -30,6 +32,12 @@ export interface ProjectConfig {
   system: string;
   /** Icon hue, 0-360. */
   hue: number;
+  /**
+   * Repo paths of the images on the save icon's faces (front, right, back,
+   * left). Without it, the first screenshots found in the repo are used; with
+   * none at all, the icon shows `short`.
+   */
+  faces?: string[];
   downloads?: ManualDownload[];
 }
 
@@ -44,6 +52,12 @@ export const projects: ProjectConfig[] = [
     region: 'NTSC-U · PAL',
     system: 'PlayStation 2',
     hue: 8,
+    faces: [
+      'docs/screenshots/story_menu.jpg',
+      'docs/screenshots/match_headlights.jpg',
+      'docs/screenshots/match_rain.jpg',
+      'docs/screenshots/intro_movie.jpg',
+    ],
   },
   {
     slug: 'valkyrie-profile-2',
@@ -55,6 +69,12 @@ export const projects: ProjectConfig[] = [
     region: 'PAL',
     system: 'PlayStation 2',
     hue: 205,
+    faces: [
+      'docs/screenshots/title.jpg',
+      'docs/screenshots/field_town.jpg',
+      'docs/screenshots/field_arch.jpg',
+      'docs/screenshots/field_dialogue.jpg',
+    ],
   },
   {
     slug: 'lotr-third-age',
@@ -66,6 +86,12 @@ export const projects: ProjectConfig[] = [
     region: 'NTSC-U',
     system: 'PlayStation 2',
     hue: 42,
+    faces: [
+      'docs/screenshots/2026-10-28-title-screen.png',
+      'docs/screenshots/2026-10-29-black-rider.png',
+      'docs/screenshots/2026-10-29-in-engine-forest.png',
+      'docs/screenshots/2026-10-29-first-battle.png',
+    ],
   },
   {
     slug: 'dark-cloud',
@@ -77,6 +103,12 @@ export const projects: ProjectConfig[] = [
     region: 'NTSC-U',
     system: 'PlayStation 2',
     hue: 268,
+    faces: [
+      'docs/screenshots/title-logo.png',
+      'docs/screenshots/genie.png',
+      'docs/screenshots/norune-night.png',
+      'docs/screenshots/dungeon-scene.png',
+    ],
   },
   {
     slug: 'jade-cocoon-2',
@@ -88,6 +120,12 @@ export const projects: ProjectConfig[] = [
     region: 'NTSC-U',
     system: 'PlayStation 2',
     hue: 150,
+    faces: [
+      'docs/screenshots/jade-throne-room.png',
+      'docs/screenshots/wormhole-forest.png',
+      'docs/screenshots/first-scene-levant.png',
+      'docs/screenshots/first-scene-room.png',
+    ],
   },
   {
     slug: 'drakengard',

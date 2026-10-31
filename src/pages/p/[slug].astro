@@ -2,6 +2,7 @@
 import type { GetStaticPaths } from 'astro';
 import Base from '../../layouts/Base.astro';
 import SaveIcon from '../../components/SaveIcon.astro';
+import Glyph from '../../components/Glyph.astro';
 import { getProjects, type Project, type Os } from '../../lib/github';
 import '../../styles/readme.css';
 
@@ -50,14 +51,14 @@ const specs = [
 >
   <div class="page" style={`--h:${p.hue}`} data-current={p.slug}>
     <nav class="crumbs" aria-label="Breadcrumb">
-      <a href={base} data-back><span class="btn circle">○</span> Browser</a>
+      <a href={base} data-back><Glyph button="circle" /> Browser</a>
       <span aria-hidden="true">›</span>
       <span>{p.kind === 'game' ? 'Games' : 'System · Tools'}</span>
     </nav>
 
     <section class="hero">
       <div class="hero-icon">
-        <SaveIcon short={p.short} hue={p.hue} kind={p.kind} size={120} spin />
+        <SaveIcon short={p.short} hue={p.hue} kind={p.kind} faces={p.faces} size={120} spin />
       </div>
       <div class="hero-info">
         <p class="eyebrow">{p.kind === 'game' ? 'Native PC port' : 'Tool'} · {p.system}</p>
@@ -139,7 +140,7 @@ const specs = [
             {p.screenshots.map((s) => (
               <li>
                 <a href={s.src} target="_blank" rel="noopener">
-                  <img src={s.src} alt={s.alt} loading="lazy" decoding="async" />
+                  <img src={s.thumb} alt={s.alt} width="640" height="480" loading="lazy" decoding="async" />
                 </a>
                 {s.alt && <span>{s.alt}</span>}
               </li>
@@ -159,12 +160,12 @@ const specs = [
 
     <nav class="pager" aria-label="Other projects">
       <a href={`${base}p/${prev.slug}/`} data-prev>
-        <span class="btn l1">L1</span>
+        <Glyph button="l1" />
         <span><small>Previous</small>{prev.title}</span>
       </a>
       <a href={`${base}p/${next.slug}/`} data-next class="next">
         <span><small>Next</small>{next.title}</span>
-        <span class="btn r1">R1</span>
+        <Glyph button="r1" />
       </a>
     </nav>
   </div>
@@ -302,6 +303,7 @@ const specs = [
   .shots img {
     display: block;
     width: 100%;
+    height: auto;
     aspect-ratio: 4 / 3;
     object-fit: cover;
     border-radius: 10px;

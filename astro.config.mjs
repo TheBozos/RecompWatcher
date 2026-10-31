@@ -8,6 +8,8 @@ export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   trailingSlash: 'always',
   prefetch: { prefetchAll: true },
+  // Screenshots are pulled from the project repos and shrunk at build time.
+  image: { domains: ['raw.githubusercontent.com'] },
   // three.js is one ~540 kB lazy chunk (≈130 kB gzipped), loaded after the page.
   vite: { build: { chunkSizeWarningLimit: 700 } },
 });

@@ -2,6 +2,7 @@
 import '@fontsource-variable/exo-2';
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
+import Glyph, { type Button } from '../components/Glyph.astro';
 
 interface Props {
   title: string;
@@ -10,7 +11,7 @@ interface Props {
   scene?: 'menu' | 'page';
   hue?: number;
   /** Button hints shown in the footer. */
-  hints?: { button: 'cross' | 'circle' | 'triangle' | 'square' | 'l1' | 'r1'; label: string }[];
+  hints?: { button: Button; label: string }[];
 }
 
 const {
@@ -27,7 +28,6 @@ const zoom = {
   new: { name: 'rw-in', duration: '0.42s', easing: 'ease-out', fillMode: 'both' },
 };
 const pageAnim = { forwards: zoom, backwards: zoom };
-const glyph = { cross: '✕', circle: '○', triangle: '△', square: '□', l1: 'L1', r1: 'R1' };
 ---
 
 <!doctype html>
@@ -63,17 +63,18 @@ const glyph = { cross: '✕', circle: '○', triangle: '△', square: '□', l1:
         {
           hints.map((h) => (
             <span class="hint">
-              <span class={`btn ${h.button}`}>{glyph[h.button]}</span>
+              <Glyph button={h.button} />
               {h.label}
             </span>
           ))
         }
       </div>
       <button class="hint sound" type="button" data-sound aria-pressed="false" title="Toggle menu sounds">
-        <span class="btn square">□</span>
+        <Glyph button="square" />
         <span class="on">Sound on</span><span class="off">Sound off</span>
       </button>
     </footer>
+    <div class="toast" data-toast role="status" aria-live="polite"></div>
 
     <script>
       import '../scripts/controls';

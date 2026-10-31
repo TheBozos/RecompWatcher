@@ -1,0 +1,18 @@
+---
+// A controller button. The face-button symbols are drawn as SVG so they sit
+// exactly in the middle of their ring (font glyphs carry uneven side bearings).
+export type Button = 'cross' | 'circle' | 'triangle' | 'square' | 'l1' | 'r1';
+interface Props {
+  button: Button;
+}
+const { button } = Astro.props;
+---
+
+<span class={`btn ${button}`} aria-hidden="true">
+  {button === 'cross' && <svg viewBox="0 0 24 24"><path d="M8 8l8 8M16 8l-8 8" /></svg>}
+  {button === 'circle' && <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6" /></svg>}
+  {button === 'triangle' && <svg viewBox="0 0 24 24"><path d="M12 7.6l4.9 8.5H7.1z" /></svg>}
+  {button === 'square' && <svg viewBox="0 0 24 24"><rect x="7.6" y="7.6" width="8.8" height="8.8" /></svg>}
+  {button === 'l1' && 'L1'}
+  {button === 'r1' && 'R1'}
+</span>

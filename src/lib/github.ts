@@ -2,6 +2,7 @@
 // the latest release's assets. Responses are memoised per build and cached on
 // disk for an hour so `astro dev` does not burn through the API rate limit.
 
+import { getImage } from 'astro:assets';
 import { execSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -69,6 +70,12 @@ interface RepoResponse {
   parent?: { full_name: string; html_url: string };
 }
 
+interface ContentEntry {
+  name: string;
+  path: string;
+  type: 'file' | 'dir';
+}
+
 interface ReleaseResponse {
   tag_name: string;
   name: string | null;
@@ -96,7 +103,10 @@ export interface Project extends ProjectConfig {
   readmeHtml: string;
   platforms: string[];
   status?: { text: string; tone: Tone };
-  screenshots: { src: string; alt: string }[];
+  /** Full-size image, a small optimised copy for the gallery, and a caption. */
+  screenshots: { src: string; thumb: string; alt: string }[];
+  /** Optimised square images for the save icon's faces; empty means letters. */
+  faces: string[];
   updatedAt: string;
   stars: number;
   language?: string;
@@ -176,16 +186,34 @@ function osOf(name: string): Os {
   return 'any';
 }
 
+/** "2026-10-29-black-rider.png" -> "Black rider" */
+function captionFromFile(name: string) {
+  const words = name
+    .replace(/\.[a-z]+$/i, '')
+    .replace(/^\d{4}-\d{2}-\d{2}-/, '')
+    .replace(/[-_]+/g, ' ')
+    .trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** A cropped WebP copy made at build time, so pages never load full-size PNGs. */
+async function optimise(src: string, width: number, height: number) {
+  const img = await getImage({ src, width, height, fit: 'cover', format: 'webp', quality: 72 });
+  return img.src;
+}
+
 // --- Public API ---------------------------------------------------------------
 
 async function load(cfg: ProjectConfig): Promise<Project> {
   const owner = cfg.owner ?? OWNER;
   const base = `/repos/${owner}/${cfg.repo}`;
-  const [repo, readme, releases] = await Promise.all([
+  const [repo, readme, releases, shotDir] = await Promise.all([
     gh<RepoResponse>(base),
     gh<string>(`${base}/readme`, 'application/vnd.github.html').catch(() => ''),
     gh<ReleaseResponse[]>(`${base}/releases?per_page=10`).catch(() => [] as ReleaseResponse[]),
+    gh<ContentEntry[]>(`${base}/contents/docs/screenshots`).catch(() => [] as ContentEntry[]),
   ]);
+  const raw = (p: string) => `https://raw.githubusercontent.com/${owner}/${cfg.repo}/${repo.default_branch}/${p}`;
 
   let readmeHtml = rewriteReadme(readme, owner, cfg.repo, repo.default_branch);
 
@@ -195,9 +223,22 @@ async function load(cfg: ProjectConfig): Promise<Project> {
   const platformBadge = badges.find((b) => b.label === 'platform');
   const statusBadge = badges.find((b) => b.label === 'status');
 
-  const screenshots = [...readmeHtml.matchAll(/<img[^>]*?\ssrc="(https:\/\/raw\.githubusercontent\.com\/[^"]+)"[^>]*?(?:alt="([^"]*)")?[^>]*>/g)]
-    .filter((m) => IMG_EXT.test(m[1]))
-    .map((m) => ({ src: m[1], alt: stripTags(m[2] ?? '') }));
+  // Screenshots: the README's own images first (with their captions), then
+  // anything else in docs/screenshots/, captioned from the file name.
+  const shots = new Map<string, string>();
+  for (const [tag] of readmeHtml.matchAll(/<img[^>]*>/g)) {
+    const src = tag.match(/\ssrc="(https:\/\/raw\.githubusercontent\.com\/[^"]+)"/)?.[1];
+    if (src && IMG_EXT.test(src)) shots.set(src, stripTags(tag.match(/\salt="([^"]*)"/)?.[1] ?? ''));
+  }
+  for (const f of shotDir) {
+    if (f.type !== 'file' || !IMG_EXT.test(f.name) || shots.has(raw(f.path))) continue;
+    shots.set(raw(f.path), captionFromFile(f.name));
+  }
+  const screenshots = await Promise.all(
+    [...shots].map(async ([src, alt]) => ({ src, alt, thumb: await optimise(src, 640, 480) })),
+  );
+  const faceSources = cfg.faces?.map(raw) ?? [...shots.keys()].slice(0, 4);
+  const faces = await Promise.all(faceSources.map((src) => optimise(src, 200, 200)));
 
   // The README opens with the title and a bold tagline; the page shows both
   // already, so pull the tagline out and drop the duplicated heading.
@@ -221,6 +262,7 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     platforms: platformBadge ? platformBadge.message.split('|').map((s) => s.trim()) : [],
     status: statusBadge ? { text: statusBadge.message, tone: toneFor(statusBadge.color) } : undefined,
     screenshots,
+    faces,
     updatedAt: repo.pushed_at,
     stars: repo.stargazers_count,
     language: repo.language ?? undefined,

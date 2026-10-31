@@ -1,5 +1,6 @@
 // Console-style controls: arrow keys and a gamepad move between `[data-nav]`
-// items, ✕/Enter opens, ○/Escape goes back, L1/R1 flip between projects.
+// items, ✕/Enter opens, ○/Escape goes back, △ opens the repo, □ toggles
+// sound, L1/R1 flip between projects.
 // Selecting an item tints the backdrop with its `data-hue`.
 
 import { navigate } from 'astro:transitions/client';
@@ -68,12 +69,23 @@ function move(dir: Dir): boolean {
   return true;
 }
 
+// Browsers do not count controller presses as a user gesture, so a new tab
+// opened from one gets blocked; the controller opens outside links in place.
+let fromPad = false;
+
+function open(el: HTMLAnchorElement) {
+  const href = el.getAttribute('href') ?? '';
+  if (href.startsWith('#')) document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' });
+  else if (el.target !== '_blank') navigate(el.href);
+  else if (fromPad) location.href = el.href;
+  else window.open(el.href, '_blank', 'noopener');
+}
+
 function clickLink(selector: string) {
   const el = document.querySelector<HTMLAnchorElement>(selector);
   if (!el) return false;
   play(selector === '[data-back]' ? 'back' : 'confirm');
-  if (el.target === '_blank') window.open(el.href, '_blank', 'noopener');
-  else navigate(el.href);
+  open(el);
   return true;
 }
 
@@ -81,7 +93,13 @@ function confirm() {
   const el = current();
   if (!el) return;
   play('confirm');
-  el.click();
+  if (el instanceof HTMLAnchorElement) open(el);
+  else el.click();
+}
+
+function toggleSound() {
+  setSound(!soundOn());
+  syncSoundButton();
 }
 
 const KEYS: Record<string, () => boolean | void> = {
@@ -99,6 +117,7 @@ addEventListener('keydown', (e) => {
   if (e.altKey || e.ctrlKey || e.metaKey) return;
   const t = e.target as HTMLElement;
   if (t.matches('input, textarea, select, [contenteditable]')) return;
+  fromPad = false;
   // Up/down scroll the page normally unless an item is selected.
   if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !current()) return;
   if (e.key === 'Enter' && current()) {
@@ -109,9 +128,14 @@ addEventListener('keydown', (e) => {
   if (handler && handler() !== false) e.preventDefault();
 });
 
-// Gamepad (standard mapping: 0 ✕, 1 ○, 3 △, 4 L1, 5 R1, 12-15 d-pad).
+// Gamepad, standard mapping: 0 ✕, 1 ○, 2 □, 3 △, 4 L1, 5 R1, 12-15 d-pad,
+// left stick moves like the d-pad, right stick scrolls the page.
 const held = new Map<number, number>();
 let polling = false;
+
+/** D-pad up/down past the last item scrolls instead, so long pages are readable. */
+const padMove = (dir: Dir) => move(dir) || ((dir === 'up' || dir === 'down') && scrollBy({ top: dir === 'up' ? -240 : 240, behavior: 'smooth' }));
+
 function pollPads(now: number) {
   const pad = [...navigator.getGamepads()].find(Boolean);
   if (!pad) {
@@ -119,15 +143,15 @@ function pollPads(now: number) {
     return;
   }
   const pressed = (i: number) => !!pad.buttons[i]?.pressed;
-  const ax = pad.axes[0] ?? 0;
-  const ay = pad.axes[1] ?? 0;
+  const [lx = 0, ly = 0, , ry = 0] = pad.axes;
   const inputs: [number, boolean, () => unknown][] = [
-    [12, pressed(12) || ay < -0.6, () => move('up')],
-    [13, pressed(13) || ay > 0.6, () => move('down')],
-    [14, pressed(14) || ax < -0.6, () => move('left')],
-    [15, pressed(15) || ax > 0.6, () => move('right')],
+    [12, pressed(12) || ly < -0.6, () => padMove('up')],
+    [13, pressed(13) || ly > 0.6, () => padMove('down')],
+    [14, pressed(14) || lx < -0.6, () => padMove('left')],
+    [15, pressed(15) || lx > 0.6, () => padMove('right')],
     [0, pressed(0), confirm],
     [1, pressed(1), () => clickLink('[data-back]')],
+    [2, pressed(2), toggleSound],
     [3, pressed(3), () => clickLink('[data-repo]')],
     [4, pressed(4), () => clickLink('[data-prev]')],
     [5, pressed(5), () => clickLink('[data-next]')],
@@ -137,20 +161,41 @@ function pollPads(now: number) {
     if (!down) held.delete(id);
     else if (since === undefined) {
       held.set(id, now + 380);
+      fromPad = true;
+      // The boot screen (and anything else waiting for "press any button") listens for this.
+      if (!dispatchEvent(new CustomEvent('rw:pad-press', { cancelable: true }))) continue;
       act();
     } else if (id >= 12 && now > since) {
       held.set(id, now + 140);
       act();
     }
   }
+  if (Math.abs(ry) > 0.2) scrollBy({ top: ry * 22 });
   requestAnimationFrame(pollPads);
 }
+
+function startPolling() {
+  if (polling) return;
+  polling = true;
+  requestAnimationFrame(pollPads);
+}
+
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+function toast(text: string) {
+  const el = document.querySelector<HTMLElement>('[data-toast]');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
 addEventListener('gamepadconnected', () => {
-  if (!polling) {
-    polling = true;
-    requestAnimationFrame(pollPads);
-  }
+  toast('Controller connected');
+  startPolling();
 });
+addEventListener('gamepaddisconnected', () => toast('Controller disconnected'));
+if ([...navigator.getGamepads()].some(Boolean)) startPolling();
 
 // Selection follows focus and hover.
 document.addEventListener('focusin', (e) => {
@@ -168,10 +213,7 @@ function syncSoundButton() {
   if (btn) btn.setAttribute('aria-pressed', String(soundOn()));
 }
 document.addEventListener('click', (e) => {
-  if ((e.target as HTMLElement).closest('[data-sound]')) {
-    setSound(!soundOn());
-    syncSoundButton();
-  }
+  if ((e.target as HTMLElement).closest('[data-sound]')) toggleSound();
 });
 
 function tickClock() {

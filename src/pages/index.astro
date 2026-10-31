@@ -25,7 +25,7 @@ const meta = (p: (typeof all)[number]) =>
     <div class="boot-inner">
       <p class="boot-logo"><span>RECOMP</span> <span>WATCHER</span></p>
       <p class="boot-tag">PlayStation 2 games, recompiled into native PC programs</p>
-      <p class="boot-skip">Press any key</p>
+      <p class="boot-skip">Press any button</p>
     </div>
   </section>
   <script is:inline>
@@ -70,7 +70,7 @@ const meta = (p: (typeof all)[number]) =>
                       data-repo-url={p.url}
                       data-autofocus={p === first ? '' : undefined}
                     >
-                      <SaveIcon short={p.short} hue={p.hue} kind={p.kind} size={p.kind === 'game' ? 72 : 56} />
+                      <SaveIcon short={p.short} hue={p.hue} kind={p.kind} faces={p.faces} size={p.kind === 'game' ? 72 : 56} />
                       <span class="slot-name">{p.title}</span>
                       {p.downloads.length > 0 && <span class="slot-badge">Download</span>}
                     </a>
@@ -126,6 +126,7 @@ const meta = (p: (typeof all)[number]) =>
       setTimeout(() => boot.remove(), 900);
       removeEventListener('keydown', skip, true);
       removeEventListener('pointerdown', skip, true);
+      removeEventListener('rw:pad-press', skip);
     };
     const skip = (e: Event) => {
       e.preventDefault();
@@ -134,6 +135,7 @@ const meta = (p: (typeof all)[number]) =>
     };
     addEventListener('keydown', skip, true);
     addEventListener('pointerdown', skip, true);
+    addEventListener('rw:pad-press', skip);
     setTimeout(finish, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 5600);
   });
 </script>
@@ -214,7 +216,7 @@ const meta = (p: (typeof all)[number]) =>
     color: var(--ink);
     background: radial-gradient(ellipse at 50% 40%, hsl(var(--h, 220) 90% 60% / 0.18), transparent 70%);
   }
-  .slot:focus-visible::after {
+  .slot:focus::after {
     content: '';
     position: absolute;
     inset: 0;
