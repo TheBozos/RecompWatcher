@@ -11,7 +11,9 @@ import { LOCALE, pageLang, tc } from '../i18n';
 
 type Dir = 'up' | 'down' | 'left' | 'right';
 
-const items = () => [...document.querySelectorAll<HTMLElement>('[data-nav]')].filter((el) => el.offsetParent !== null);
+// An open modal (the screenshot viewer) is all that can be navigated while it is up.
+const openDialog = () => document.querySelector<HTMLDialogElement>('dialog[open]');
+const items = () => [...(openDialog() ?? document).querySelectorAll<HTMLElement>('[data-nav]')].filter((el) => el.offsetParent !== null);
 const current = () => {
   const a = document.activeElement as HTMLElement | null;
   return a?.matches('[data-nav]') ? a : null;
@@ -90,6 +92,15 @@ function open(el: HTMLAnchorElement) {
 }
 
 function clickLink(selector: string) {
+  const dialog = openDialog();
+  if (dialog) {
+    // Back closes the dialog; previous / next step through it.
+    if (selector === '[data-back]') {
+      play('back');
+      dialog.close();
+    } else dialog.dispatchEvent(new CustomEvent('rw:adjust', { detail: selector === '[data-prev]' ? -1 : 1 }));
+    return true;
+  }
   const el = document.querySelector<HTMLAnchorElement>(selector);
   if (!el) return false;
   play(selector === '[data-back]' ? 'back' : 'confirm');

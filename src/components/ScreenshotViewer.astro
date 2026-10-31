@@ -1,0 +1,253 @@
+---
+// A full-screen screenshot viewer (a modal <dialog>): ←/→, the d-pad, L1/R1
+// or a swipe to browse; Esc, ○, Close or a tap outside the picture to leave.
+// Links marked `data-shot="<index>"` open it; without JS they still open the
+// full image.
+import Glyph from './Glyph.astro';
+import { useT, type Lang } from '../i18n';
+
+interface Props {
+  shots: { src: string; thumb: string; alt: string }[];
+  lang: Lang;
+}
+const { shots, lang } = Astro.props;
+const t = useT(lang);
+---
+
+<dialog class="viewer" data-viewer aria-label={t('screenshots')}>
+  <figure>
+    <div class="frame">
+      <img data-viewer-img alt="" />
+    </div>
+    <figcaption>
+      <span class="caption" data-viewer-caption></span>
+      <span class="count" data-viewer-count></span>
+      <a class="full" data-viewer-full href="#" target="_blank" rel="noopener">{t('viewerFull')}</a>
+    </figcaption>
+  </figure>
+  <div class="bar">
+    <button type="button" class="step prev" data-viewer-step="-1" data-nav data-adjust aria-label={t('viewerPrev')}>‹</button>
+    <span class="how"><span class="pointer-only">{t('viewerKeys')}</span><span class="touch-only">{t('viewerSwipe')}</span></span>
+    <button type="button" class="close" data-viewer-close data-nav data-adjust>
+      <Glyph button="circle" />
+      {t('viewerClose')}
+    </button>
+    <button type="button" class="step next" data-viewer-step="1" data-nav data-adjust aria-label={t('viewerNext')}>›</button>
+  </div>
+  <script type="application/json" data-viewer-data set:html={JSON.stringify(shots)} />
+</dialog>
+
+<script>
+  import { play } from '../scripts/sound';
+
+  type Shot = { src: string; thumb: string; alt: string };
+  let index = 0;
+
+  const dialog = () => document.querySelector<HTMLDialogElement>('[data-viewer]');
+  const shots = (d: HTMLDialogElement) => JSON.parse(d.querySelector('[data-viewer-data]')!.textContent!) as Shot[];
+
+  function show(d: HTMLDialogElement, i: number) {
+    const all = shots(d);
+    index = (i + all.length) % all.length;
+    const shot = all[index];
+    const img = d.querySelector<HTMLImageElement>('[data-viewer-img]')!;
+    // The small copy shows at once; the full image replaces it when it has loaded.
+    img.src = shot.thumb;
+    img.alt = shot.alt;
+    const full = new Image();
+    full.onload = () => {
+      if (all[index] === shot) img.src = shot.src;
+    };
+    full.src = shot.src;
+    // Warm the neighbours' small copies.
+    for (const n of [index - 1, index + 1]) new Image().src = all[(n + all.length) % all.length].thumb;
+    d.querySelector('[data-viewer-caption]')!.textContent = shot.alt;
+    d.querySelector('[data-viewer-count]')!.textContent = `${index + 1} / ${all.length}`;
+    d.querySelector<HTMLAnchorElement>('[data-viewer-full]')!.href = shot.src;
+  }
+
+  function step(by: number) {
+    const d = dialog();
+    if (!d?.open) return;
+    play('move');
+    show(d, index + by);
+  }
+
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    const link = target.closest<HTMLAnchorElement>('[data-shot]');
+    const d = dialog();
+    if (link && d && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      e.preventDefault();
+      play('confirm');
+      show(d, Number(link.dataset.shot));
+      d.showModal();
+      d.querySelector<HTMLElement>('[data-viewer-close]')!.focus();
+      return;
+    }
+    if (!d?.open) return;
+    const stepBtn = target.closest<HTMLElement>('[data-viewer-step]');
+    if (stepBtn) step(Number(stepBtn.dataset.viewerStep));
+    else if (target.closest('[data-viewer-close]') || target === d) d.close();
+  });
+
+  // ←/→ and the d-pad arrive as rw:adjust (the Close button is data-adjust),
+  // L1/R1 as rw:adjust on the dialog itself.
+  document.addEventListener('rw:adjust', (e) => {
+    if ((e.target as HTMLElement).closest?.('[data-viewer]')) step((e as CustomEvent<number>).detail);
+  });
+
+  // Swipe.
+  let startX: number | undefined;
+  document.addEventListener('pointerdown', (e) => {
+    if ((e.target as HTMLElement).closest('[data-viewer] .frame')) startX = e.clientX;
+  });
+  document.addEventListener('pointerup', (e) => {
+    if (startX === undefined) return;
+    const dx = e.clientX - startX;
+    startX = undefined;
+    if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1);
+  });
+</script>
+
+<style>
+  .viewer {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: var(--ink);
+    background: rgb(1 3 10 / 0.92);
+    overscroll-behavior: contain;
+  }
+  .viewer::backdrop {
+    background: rgb(0 0 0 / 0.6);
+    backdrop-filter: blur(6px);
+  }
+  .viewer[open] {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    animation: viewer-in 0.25s ease-out;
+  }
+  @keyframes viewer-in {
+    from {
+      opacity: 0;
+      scale: 0.97;
+    }
+  }
+  :global(:root[data-motion='reduced']) .viewer[open] {
+    animation: none;
+  }
+  figure {
+    margin: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    padding: max(16px, env(safe-area-inset-top)) clamp(16px, 6vw, 90px) 0;
+  }
+  .frame {
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    touch-action: pan-y;
+  }
+  .frame img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 20px 80px rgb(0 0 0 / 0.6);
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    gap: 6px 16px;
+    padding: 12px 0 4px;
+    font-size: 0.9rem;
+  }
+  .count,
+  .full {
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+  }
+  .step {
+    position: fixed;
+    top: 50%;
+    translate: 0 -50%;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    font: inherit;
+    font-size: 1.8rem;
+    line-height: 1;
+    color: var(--ink);
+    background: var(--glass);
+    border: 1px solid var(--line-strong);
+    cursor: pointer;
+  }
+  .step:hover {
+    background: rgb(110 150 255 / 0.25);
+  }
+  .prev {
+    left: max(12px, env(safe-area-inset-left));
+  }
+  .next {
+    right: max(12px, env(safe-area-inset-right));
+  }
+  .bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px var(--gutter) calc(14px + env(safe-area-inset-bottom));
+    font-size: 0.82rem;
+    color: var(--ink-dim);
+  }
+  .close {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px 8px 10px;
+    font: inherit;
+    color: var(--ink);
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: var(--glass);
+    cursor: pointer;
+    outline: none;
+  }
+  .close:is(:hover, :focus-visible) {
+    background: rgb(110 150 255 / 0.22);
+  }
+  /* Phones: the arrows join the bottom bar, beside Close. */
+  @media (max-width: 600px) {
+    .step {
+      position: static;
+      translate: none;
+      width: 44px;
+      height: 44px;
+      flex: none;
+    }
+    .bar {
+      gap: 8px;
+    }
+    .how {
+      flex: 1;
+      text-align: center;
+    }
+    .close {
+      order: 3;
+    }
+    .next {
+      order: 2;
+    }
+  }
+</style>

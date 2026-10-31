@@ -7,6 +7,7 @@ import DiscCheck from '../../../components/DiscCheck.astro';
 import Progress from '../../../components/Progress.astro';
 import Milestones from '../../../components/Milestones.astro';
 import AuthorTag from '../../../components/AuthorTag.astro';
+import ScreenshotViewer from '../../../components/ScreenshotViewer.astro';
 import { getProjects, type Project, type Os } from '../../../lib/github';
 import { formatDate, langPaths, localHref, useT, type Lang } from '../../../i18n';
 import '../../../styles/readme.css';
@@ -176,15 +177,16 @@ const specs = [
         <section class="shots" aria-label={t('screenshots')}>
           <p class="eyebrow">{t('screenshots')}</p>
           <ul>
-            {p.screenshots.map((s) => (
+            {p.screenshots.map((s, i) => (
               <li>
-                <a href={s.src} target="_blank" rel="noopener">
+                <a href={s.src} target="_blank" rel="noopener" data-shot={i}>
                   <img src={s.thumb} alt={s.alt} width="640" height="480" loading="lazy" decoding="async" />
                 </a>
                 {s.alt && <span>{s.alt}</span>}
               </li>
             ))}
           </ul>
+          <ScreenshotViewer shots={p.screenshots} lang={lang} />
         </section>
       )
     }
