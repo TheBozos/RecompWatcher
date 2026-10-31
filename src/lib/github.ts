@@ -171,6 +171,8 @@ export interface Author {
   url: string;
   /** Small optimised avatar. */
   avatar: string;
+  /** The original avatar URL, for build-time image work (share cards). */
+  avatarSource: string;
 }
 
 export interface Project extends ProjectConfig {
@@ -186,6 +188,8 @@ export interface Project extends ProjectConfig {
   screenshots: { src: string; thumb: string; alt: string }[];
   /** Optimised square images for the save icon's faces; empty means letters. */
   faces: string[];
+  /** Full-size URL of the main screenshot (the icon's front face), if any. */
+  cover?: string;
   /**
    * Files a player's copy must match. `any`: one of them (alternative
    * releases); `all`: every one.
@@ -395,6 +399,7 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     name: user.name ?? undefined,
     url: user.html_url,
     avatar: await optimise(user.avatar_url, 64, 64),
+    avatarSource: user.avatar_url,
   };
   const base = `/repos/${owner}/${cfg.repo}`;
   const [repo, readme, releases, shotDir, statusChanges, commits] = await Promise.all([
@@ -457,6 +462,7 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     status: statusBadge ? { text: statusBadge.message, tone: toneFor(statusBadge.color) } : undefined,
     screenshots,
     faces,
+    cover: faceSources[0],
     disc: parseDiscTable(readmeHtml),
     updatedAt: repo.pushed_at,
     createdAt: repo.created_at,

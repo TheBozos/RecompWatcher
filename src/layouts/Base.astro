@@ -10,6 +10,8 @@ interface Props {
   /** Backdrop mode for this page. */
   scene?: 'menu' | 'page';
   hue?: number;
+  /** Share card path under the site, e.g. "og/dark-cloud.jpg". */
+  image?: string;
   /** Button hints shown in the footer. */
   hints?: { button: Button; label: string }[];
 }
@@ -19,9 +21,13 @@ const {
   description = 'Native PC ports of PlayStation 2 games, made by static recompilation.',
   scene = 'page',
   hue,
+  image = 'og/home.jpg',
   hints = [{ button: 'cross', label: 'Enter' }],
 } = Astro.props;
 const base = import.meta.env.BASE_URL;
+const site = Astro.site ?? new URL('http://localhost:4321');
+const absolute = (path: string) => new URL(base.replace(/\/?$/, '/') + path, site).href;
+const pageUrl = new URL(Astro.url.pathname, site).href;
 // A soft PS2-style zoom-through between pages (keyframes in global.css).
 const zoom = {
   old: { name: 'rw-out', duration: '0.28s', easing: 'ease-in', fillMode: 'both' },
@@ -37,8 +43,17 @@ const pageAnim = { forwards: zoom, backwards: zoom };
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#01030a" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Recomp Watcher" />
+    <meta property="og:url" content={pageUrl} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
+    <meta property="og:image" content={absolute(image)} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={title} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href={pageUrl} />
     <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
     <title>{title}</title>
     <ClientRouter fallback="swap" />

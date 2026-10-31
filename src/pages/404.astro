@@ -1,0 +1,94 @@
+---
+// GitHub Pages serves this for any address under the site that does not exist.
+import Base from '../layouts/Base.astro';
+import Glyph from '../components/Glyph.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Base title="Nothing here · Recomp Watcher" hints={[{ button: 'cross', label: 'Back to the Browser' }]}>
+  <section class="empty">
+    <div class="card-slot" aria-hidden="true">
+      <div class="slot-outline"></div>
+      <span>404</span>
+    </div>
+    <p class="eyebrow">Memory Card / 1</p>
+    <h1>Nothing saved here</h1>
+    <p class="lede">This page isn't on the memory card. It may have moved, or the link has a typo.</p>
+    <a class="back" href={base} data-nav data-autofocus data-back>
+      <Glyph button="cross" /> Back to the Browser
+    </a>
+  </section>
+</Base>
+
+<style>
+  .empty {
+    min-height: calc(100dvh - 160px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 var(--gutter);
+  }
+  .card-slot {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 26px;
+  }
+  .slot-outline {
+    position: absolute;
+    inset: 0;
+    border: 2px dashed var(--line-strong);
+    border-radius: 16px;
+    animation: breathe 3s ease-in-out infinite;
+  }
+  .card-slot span {
+    font-size: 1.6rem;
+    font-weight: 200;
+    letter-spacing: 0.2em;
+    color: var(--ink-dim);
+    text-shadow: var(--glow);
+  }
+  h1 {
+    margin: 8px 0 10px;
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    font-weight: 300;
+    text-shadow: var(--glow);
+  }
+  .lede {
+    margin: 0 0 26px;
+    color: var(--ink-dim);
+    max-width: 46ch;
+  }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: rgb(110 150 255 / 0.12);
+    color: var(--ink);
+    text-decoration: none;
+    outline: none;
+  }
+  .back:is(:hover, :focus, :focus-visible) {
+    background: rgb(110 150 255 / 0.24);
+    text-shadow: var(--glow);
+  }
+  @keyframes breathe {
+    50% {
+      opacity: 0.45;
+      scale: 0.96;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .slot-outline {
+      animation: none;
+    }
+  }
+</style>

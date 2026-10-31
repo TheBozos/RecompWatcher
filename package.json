@@ -10,8 +10,13 @@
     "check": "astro check"
   },
   "dependencies": {
+    "@astrojs/rss": "^4.0.19",
     "@fontsource-variable/exo-2": "^5.3.0",
+    "@fontsource/exo-2": "^5.3.0",
+    "@resvg/resvg-js": "^2.6.2",
     "astro": "^7.4.4",
+    "satori": "^0.63.2",
+    "sharp": "^0.35.5",
     "three": "^0.187.0"
   },
   "devDependencies": {
