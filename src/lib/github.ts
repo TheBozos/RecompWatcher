@@ -455,6 +455,11 @@ function captionFromFile(name: string) {
 }
 
 /** A cropped WebP copy made at build time, so pages never load full-size PNGs. */
+async function exists(url: string) {
+  const res = await fetch(url, { method: 'HEAD' }).catch(() => null);
+  return !!res?.ok;
+}
+
 async function optimise(src: string, width: number, height: number) {
   // SVGs (diagrams in a README) are already small and can't be rasterised here:
   // they're shown as they are. Anything else that fails also falls back to the
@@ -510,10 +515,16 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     if (f.type !== 'file' || !IMG_EXT.test(f.name) || shots.has(raw(f.path))) continue;
     shots.set(raw(f.path), captionFromFile(f.name));
   }
+  // A README can point at a picture that was never pushed; those are left out
+  // (the image step would otherwise fail the whole build on them).
+  const found = await Promise.all([...shots.keys()].map(exists));
+  for (const [i, src] of [...shots.keys()].entries()) if (!found[i]) shots.delete(src);
   const screenshots = await Promise.all(
     [...shots].map(async ([src, alt]) => ({ src, alt, thumb: await optimise(src, 640, 480) })),
   );
-  const faceSources = cfg.faces?.map(raw) ?? [...shots.keys()].slice(0, 4);
+  // Chosen faces that still exist, topped up with other screenshots.
+  const chosen = (cfg.faces?.map(raw) ?? []).filter((src) => shots.has(src));
+  const faceSources = [...new Set([...chosen, ...shots.keys()])].slice(0, Math.max(cfg.faces?.length ?? 0, 4));
   const faces = await Promise.all(faceSources.map((src) => optimise(src, 200, 200)));
 
   // The README opens with the title and a bold tagline; the page shows both

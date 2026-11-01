@@ -68,8 +68,8 @@ export const projects: ProjectConfig[] = [
     hue: 8,
     faces: [
       'docs/screenshots/story_menu.jpg',
-      'docs/screenshots/match_headlights.jpg',
-      'docs/screenshots/match_rain.jpg',
+      'docs/screenshots/match_night.jpg',
+      'docs/screenshots/match_explosion.jpg',
       'docs/screenshots/intro_movie.jpg',
     ],
   },
