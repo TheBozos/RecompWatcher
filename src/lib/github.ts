@@ -504,12 +504,12 @@ async function load(cfg: ProjectConfig): Promise<Project> {
   const platformBadge = badges.find((b) => b.label === 'platform');
   const statusBadge = badges.find((b) => b.label === 'status');
 
-  // Screenshots: the README's own images first (with their captions), then
-  // anything else in docs/screenshots/, captioned from the file name.
+  // Screenshots: the README's own raster images first (with their captions; SVGs there are diagrams, not
+  // screenshots), then anything else in docs/screenshots/, captioned from the file name.
   const shots = new Map<string, string>();
   for (const [tag] of readmeHtml.matchAll(/<img[^>]*>/g)) {
     const src = tag.match(/\ssrc="(https:\/\/raw\.githubusercontent\.com\/[^"]+)"/)?.[1];
-    if (src && IMG_EXT.test(src)) shots.set(src, stripTags(tag.match(/\salt="([^"]*)"/)?.[1] ?? ''));
+    if (src && IMG_EXT.test(src) && !/\.svg$/i.test(src)) shots.set(src, stripTags(tag.match(/\salt="([^"]*)"/)?.[1] ?? ''));
   }
   for (const f of shotDir) {
     if (f.type !== 'file' || !IMG_EXT.test(f.name) || shots.has(raw(f.path))) continue;
