@@ -456,8 +456,16 @@ function captionFromFile(name: string) {
 
 /** A cropped WebP copy made at build time, so pages never load full-size PNGs. */
 async function optimise(src: string, width: number, height: number) {
-  const img = await getImage({ src, width, height, fit: 'cover', format: 'webp', quality: 72 });
-  return img.src;
+  // SVGs (diagrams in a README) are already small and can't be rasterised here:
+  // they're shown as they are. Anything else that fails also falls back to the
+  // original, so a project's README can never break the site's build.
+  if (/\.svg($|\?)/i.test(src)) return src;
+  try {
+    const img = await getImage({ src, width, height, fit: 'cover', format: 'webp', quality: 72 });
+    return img.src;
+  } catch {
+    return src;
+  }
 }
 
 // --- Public API ---------------------------------------------------------------
