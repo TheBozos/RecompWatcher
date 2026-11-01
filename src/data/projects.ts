@@ -7,7 +7,7 @@
 // Once a repo has a release, its assets show up automatically.
 
 /** Default repo owner; set `owner` on a project made by someone else. */
-export const OWNER = 'boubou666';
+export const OWNER = 'TheBozos';
 
 /**
  * Auto-discovery: any public repo of these people carrying this topic shows
@@ -17,7 +17,7 @@ export const OWNER = 'boubou666';
  */
 export const DISCOVER = {
   topic: 'recomp-watcher',
-  owners: [OWNER, 'Arzaroth'],
+  owners: [OWNER, 'boubou666', 'Arzaroth'],
   /** "owner/repo" names never to show. */
   exclude: [] as string[],
 };
@@ -144,6 +144,7 @@ export const projects: ProjectConfig[] = [
   {
     slug: 'drakengard',
     repo: 'Drakengard_Recomp',
+    owner: 'boubou666',
     title: 'Drakengard',
     short: 'DoD',
     kind: 'game',
@@ -156,7 +157,6 @@ export const projects: ProjectConfig[] = [
   {
     slug: 'soulcalibur-3',
     repo: 'SoulCaliburIII_Recomp',
-    owner: 'Arzaroth',
     title: 'Soulcalibur III',
     short: 'SC3',
     kind: 'game',
@@ -174,7 +174,6 @@ export const projects: ProjectConfig[] = [
   {
     slug: 'fighting-for-one-piece',
     repo: 'FightingForOnePiece_Recomp',
-    owner: 'Arzaroth',
     title: 'Fighting for One Piece',
     short: 'FfOP',
     kind: 'game',
@@ -192,7 +191,6 @@ export const projects: ProjectConfig[] = [
   {
     slug: 'smash-court-tennis-2',
     repo: 'SmashCourtTennisProTournament2_Recomp',
-    owner: 'Arzaroth',
     title: 'Smash Court Tennis Pro Tournament 2',
     short: 'SCT2',
     kind: 'game',
@@ -219,6 +217,7 @@ export const projects: ProjectConfig[] = [
   {
     slug: 'ps2-network-recomp',
     repo: 'PS2_Network_Recomp',
+    owner: 'boubou666',
     title: 'PS2 Network Recomp',
     short: 'NET',
     kind: 'tool',
@@ -228,6 +227,7 @@ export const projects: ProjectConfig[] = [
   {
     slug: 'virtual-boy-recomp',
     repo: 'VirtualBoyRecomp',
+    owner: 'boubou666',
     title: 'VirtualBoyRecomp',
     short: 'VB',
     kind: 'tool',
