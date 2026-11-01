@@ -48,7 +48,7 @@ To refresh the site as soon as a project publishes a release, add this step to t
 (with a token that can dispatch to this repo):
 
 ```yaml
-- run: gh api repos/boubou666/RecompWatcher/dispatches -f event_type=project-updated
+- run: gh api repos/TheBozos/RecompWatcher/dispatches -f event_type=project-updated
   env:
     GH_TOKEN: ${{ secrets.WATCHER_DISPATCH_TOKEN }}
 ```
