@@ -206,6 +206,17 @@ export const projects: ProjectConfig[] = [
     ],
   },
   {
+    slug: 'champions-of-norrath',
+    repo: 'ChampionsOfNorrath_Recomp',
+    title: 'Champions of Norrath',
+    short: 'CoN',
+    kind: 'game',
+    serial: 'SLUS-20565',
+    region: 'NTSC-U',
+    system: 'PlayStation 2',
+    hue: 125,
+  },
+  {
     slug: 'ps2recomp',
     repo: 'PS2Recomp',
     title: 'PS2Recomp',
