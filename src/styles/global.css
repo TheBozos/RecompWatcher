@@ -117,6 +117,14 @@ a {
   font-size: 0.82rem;
   text-shadow: var(--glow);
 }
+.brand-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  align-self: center;
+  margin-right: 0.35em;
+  box-shadow: 0 0 10px rgb(111 141 255 / 0.4);
+}
 .brand-mark {
   font-weight: 700;
 }

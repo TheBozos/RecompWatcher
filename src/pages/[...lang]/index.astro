@@ -192,6 +192,7 @@ const meta = (p: (typeof all)[number]) =>
                       {authors.length > 1 && (
                         <img class="slot-avatar" src={p.author.avatar} alt={`${t('by')} ${p.author.login}`} title={`${t('by')} ${p.author.login}`} width="22" height="22" />
                       )}
+                      {p.icon && <img class="slot-icon" src={p.icon} alt="" width="30" height="30" loading="lazy" decoding="async" />}
                       <span class="slot-name">{p.title}</span>
                       {msOf(p) && <Blocks steps={msOf(p)!} lang={lang} />}
                       <span class="slot-badges">
@@ -677,6 +678,16 @@ const meta = (p: (typeof all)[number]) =>
     width: 22px;
     height: 22px;
     border-radius: 50%;
+    border: 1.5px solid hsl(var(--h) 90% 70% / 0.8);
+    box-shadow: 0 0 8px rgb(0 0 0 / 0.6);
+  }
+  .slot-icon {
+    position: absolute;
+    top: 68px;
+    right: 12px;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
     border: 1.5px solid hsl(var(--h) 90% 70% / 0.8);
     box-shadow: 0 0 8px rgb(0 0 0 / 0.6);
   }
