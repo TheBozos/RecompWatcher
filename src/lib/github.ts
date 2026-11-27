@@ -84,6 +84,7 @@ interface UserResponse {
   name: string | null;
   html_url: string;
   avatar_url: string;
+  type?: string;
 }
 
 interface CommitResponse {
@@ -568,7 +569,8 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     ...pickChecklists(parseChecklists(readmeHtml)),
     // Only the owner's commits: a fork's history is mostly upstream's.
     commits: commits
-      .filter((c) => c.author?.login?.toLowerCase() === owner.toLowerCase())
+      // An organisation owns the repo but its people author the commits: keep them all.
+      .filter((c) => user.type === 'Organization' || c.author?.login?.toLowerCase() === owner.toLowerCase())
       .slice(0, 8)
       .map(toCommit),
     stars: repo.stargazers_count,
