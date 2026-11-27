@@ -5,6 +5,8 @@ import { ClientRouter } from 'astro:transitions';
 import Glyph, { type Button } from '../components/Glyph.astro';
 import { localHref, useT, type Lang } from '../i18n';
 import { pwaInfo } from 'virtual:pwa-info';
+import { Image } from 'astro:assets';
+import bozos from '../assets/bozos-icon.png';
 
 interface Props {
   lang: Lang;
@@ -85,6 +87,7 @@ const pageAnim = { forwards: zoom, backwards: zoom };
 
     <header class="topbar">
       <a href={localHref(lang)} class="brand" data-brand>
+        <Image class="brand-icon" src={bozos} alt="" width={44} height={44} />
         <span class="brand-mark">RECOMP</span><span class="brand-sub">WATCHER</span>
       </a>
       <nav class="topnav" aria-label="Recomp Watcher">

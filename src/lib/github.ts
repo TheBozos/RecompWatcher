@@ -210,6 +210,9 @@ export interface Project extends ProjectConfig {
   faces: string[];
   /** Full-size URL of the main screenshot (the icon's front face), if any. */
   cover?: string;
+  /** The game's own themed icon (docs/branding/<game>_icon_256.png in its repo): optimised copy, and the full-size URL. */
+  icon?: string;
+  iconSource?: string;
   /**
    * Files a player's copy must match. `any`: one of them (alternative
    * releases); `all`: every one.
@@ -487,11 +490,12 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     avatarSource: user.avatar_url,
   };
   const base = `/repos/${owner}/${cfg.repo}`;
-  const [repo, readme, releases, shotDir, statusChanges, commits] = await Promise.all([
+  const [repo, readme, releases, shotDir, brandDir, statusChanges, commits] = await Promise.all([
     gh<RepoResponse>(base),
     gh<string>(`${base}/readme`, 'application/vnd.github.html').catch(() => ''),
     gh<ReleaseResponse[]>(`${base}/releases?per_page=10`).catch(() => [] as ReleaseResponse[]),
     gh<ContentEntry[]>(`${base}/contents/docs/screenshots`).catch(() => [] as ContentEntry[]),
+    gh<ContentEntry[]>(`${base}/contents/docs/branding`).catch(() => [] as ContentEntry[]),
     readmeHistory(owner, cfg.repo, base),
     gh<CommitResponse[]>(`${base}/commits?per_page=40`).catch(() => [] as CommitResponse[]),
   ]);
@@ -528,6 +532,11 @@ async function load(cfg: ProjectConfig): Promise<Project> {
   const faceSources = [...new Set([...chosen, ...shots.keys()])].slice(0, Math.max(cfg.faces?.length ?? 0, 4));
   const faces = await Promise.all(faceSources.map((src) => optimise(src, 200, 200)));
 
+  // The game's own icon: docs/branding/<game>_icon_256.png (the team's shared bozos_* logo is not a game's).
+  const iconFile = brandDir.find((f) => f.type === 'file' && /^(?!bozos_).*_icon_256\.png$/i.test(f.name));
+  const iconSource = iconFile ? raw(iconFile.path) : undefined;
+  const icon = iconSource ? await optimise(iconSource, 96, 96) : undefined;
+
   // The README opens with the title and a bold tagline; the page shows both
   // already, so pull the tagline out and drop the duplicated heading.
   const lead = readmeHtml.match(/<p[^>]*>\s*<strong>([\s\S]*?)<\/strong>/);
@@ -561,6 +570,8 @@ async function load(cfg: ProjectConfig): Promise<Project> {
     screenshots,
     faces,
     cover: faceSources[0],
+    icon,
+    iconSource,
     disc: parseDiscTable(readmeHtml),
     updatedAt: repo.pushed_at,
     createdAt: repo.created_at,

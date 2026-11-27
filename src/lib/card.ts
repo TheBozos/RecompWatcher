@@ -102,7 +102,11 @@ async function render(node: Node) {
 }
 
 export async function projectCard(p: Project): Promise<Buffer> {
-  const [cover, avatar] = await Promise.all([embed(p.cover, 520, 520), embed(p.author.avatarSource, 64, 64)]);
+  const [cover, avatar, icon] = await Promise.all([
+    embed(p.cover, 520, 520),
+    embed(p.author.avatarSource, 64, 64),
+    p.iconSource ? embed(p.iconSource, 160, 160) : Promise.resolve(undefined),
+  ]);
   const ms = p.milestones;
   const done = ms?.items.filter((i) => i.step === 'done').length ?? 0;
   const native = p.nativeLayers;
@@ -133,7 +137,18 @@ export async function projectCard(p: Project): Promise<Buffer> {
       h(
         'div',
         { position: 'absolute', inset: 0, padding: '70px 70px', gap: 56, alignItems: 'center' },
-        h('div', { boxShadow: `0 0 70px ${hsl(p.hue, 90, 55, 0.55)}`, borderRadius: 22 }, art),
+        h(
+          'div',
+          { position: 'relative', boxShadow: `0 0 70px ${hsl(p.hue, 90, 55, 0.55)}`, borderRadius: 22 },
+          art,
+          icon
+            ? h(
+                'div',
+                { position: 'absolute', right: -22, bottom: -22, display: 'flex' },
+                img(icon, { width: 120, height: 120, borderRadius: 26, border: `3px solid ${hsl(p.hue, 90, 75, 0.9)}` }),
+              )
+            : undefined,
+        ),
         h(
           'div',
           { flexDirection: 'column', flex: 1, gap: 18 },

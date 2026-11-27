@@ -75,7 +75,10 @@ const specs = [
       </div>
       <div class="hero-info">
         <p class="eyebrow">{p.kind === 'game' ? t('kindGame') : t('kindTool')} · {p.system}</p>
-        <h1>{p.title}</h1>
+        <div class="title-row">
+          {p.icon && <img class="title-icon" src={p.icon} alt="" width="56" height="56" decoding="async" />}
+          <h1>{p.title}</h1>
+        </div>
         <p class="byline"><AuthorTag author={p.author} link prefix={p.kind === 'game' ? t('recompiledBy') : t('by')} /></p>
         {p.status && <p class="status" data-tone={p.status.tone}>{p.status.text}</p>}
         <p class="tagline">{p.tagline || p.description}</p>
@@ -248,8 +251,22 @@ const specs = [
   .hero-icon {
     padding-top: 8px;
   }
-  .hero h1 {
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
     margin: 8px 0 10px;
+  }
+  .title-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    flex: none;
+    border: 1.5px solid hsl(var(--h) 90% 72% / 0.7);
+    box-shadow: 0 0 18px hsl(var(--h) 100% 60% / 0.35);
+  }
+  .hero h1 {
+    margin: 0;
     font-size: clamp(1.8rem, 4vw, 2.9rem);
     font-weight: 300;
     line-height: 1.1;
